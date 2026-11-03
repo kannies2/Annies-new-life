@@ -1,0 +1,25 @@
+Ilustrações da Agnes
+====================
+
+Um arquivo .webp por momento, quadrado, com transparência.
+O nome do arquivo é o que liga a ilustração ao momento no app.
+
+Para acender um momento:
+1. Ponha o arquivo aqui, com o nome exato da lista.
+2. Acrescente o mesmo nome, sem extensão, no conjunto DISPONIVEIS
+   em js/ilustra.js.
+3. Acrescente o caminho na lista ARQUIVOS em sw.js, para funcionar offline.
+
+Enquanto o arquivo não existir, o app usa o vetor plano no lugar e
+nada quebra.
+
+Nomes esperados
+---------------
+area-espiritualidade, area-fisica, area-mental, area-profissional,
+area-bemestar, area-jogos, area-beleza, area-autoestima,
+area-financas, area-viagens
+
+momento-tutorial, momento-comemora, momento-revisao, momento-trofeu,
+momento-meta, momento-lista, momento-calendario, momento-atrasada
+
+vazio-tarefas, vazio-habitos, vazio-desafios, vazio-busca, vazio-lixeira

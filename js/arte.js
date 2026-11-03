@@ -242,7 +242,9 @@ function festejar(comAgnes = true, textoSelo = "7", subSelo = "DIAS", opcoes = {
     <div class="festa-caixa" role="dialog" aria-modal="true" aria-label="${opcoes.titulo || "Parabéns"}">
       <button class="festa-fechar" aria-label="Fechar">${mini("fechar", 20)}</button>
       <div class="festa-peca">${peca}</div>
-      ${comAgnes ? `<div class="festa-agnes">${agnes("acolhedora_laco", 116)}</div>` : ""}
+      ${comAgnes ? `<div class="festa-agnes">${(window.Ilustra
+        ? window.Ilustra.peca(opcoes.selo ? "momento-trofeu" : "momento-comemora", 116, "Agnes comemorando")
+        : agnes("acolhedora_laco", 116))}</div>` : ""}
       <p class="festa-titulo">${opcoes.titulo || "Conseguiu!"}</p>
       ${opcoes.texto ? `<p class="festa-texto">${opcoes.texto}</p>` : ""}
       <div class="festa-chip">${chipPalavra(opcoes.palavra)}</div>

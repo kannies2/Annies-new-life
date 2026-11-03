@@ -785,6 +785,14 @@ dialog.saindo { animation: modal-sai 160ms ease-in forwards; }
 .passo-novo input:focus { border-style: solid; border-color: var(--acao); background: var(--creme-100); }
 .passo-novo .btn { flex: none; width: 44px; padding: 0; justify-content: center; }
 
+/* ilustrações da Agnes: entram no lugar do vetor quando o arquivo existe */
+.agnes-ilustra {
+  display: block; height: auto; max-width: 100%;
+  object-fit: contain; -webkit-user-drag: none; user-select: none;
+}
+.vazio .agnes-ilustra { margin: 0 auto var(--space-3); }
+.sugestao-icone .agnes-ilustra { border-radius: var(--radius-md); }
+
 /* recado da Agnes */
 .recado {
   position: relative; display: flex; align-items: center; gap: var(--space-3);

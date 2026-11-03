@@ -3,6 +3,7 @@
 "use strict";
 
 const D = window.Dados, A = window.Arte, AS = window.Assessments, B = window.Biblioteca;
+const I = window.Ilustra || { peca: (n, t) => (window.Arte ? window.Arte.agnes("feliz", t) : ""), tem: () => false };
 const S = window.Som || { tocar(){}, alternar(){}, ligado(){ return false; }, retomarSeLigado(){} };
 const $ = (s, raiz = document) => raiz.querySelector(s);
 const $$ = (s, raiz = document) => [...raiz.querySelectorAll(s)];
@@ -651,8 +652,15 @@ function linhaTarefa(t, opcoes = {}) {
     </div>
   </li>`;
 }
-function vazio(expr, titulo, apoio, botao, marca) {
-  return `<div class="vazio reveal">${A.agnes(expr, 92)}
+/* cada tela vazia tem a sua ilustração; enquanto ela não chega, vem o vetor */
+const VAZIO_ILUSTRA = {
+  tarefa: "vazio-tarefas", habito: "vazio-habitos", desafio: "vazio-desafios",
+  meta: "momento-meta", busca: "vazio-busca", lixeira: "vazio-lixeira"
+};
+function vazio(expr, titulo, apoio, botao, marca, momento) {
+  const chave = momento || VAZIO_ILUSTRA[marca];
+  const arte = chave ? I.peca(chave, 92, titulo) : A.agnes(expr, 92);
+  return `<div class="vazio reveal">${arte}
     <p>${esc(titulo)}</p><p class="apoio">${esc(apoio)}</p>
     ${botao ? `<button class="btn btn-principal" data-vazio="${marca || ""}">${esc(botao)}</button>` : ""}</div>`;
 }
@@ -1076,6 +1084,13 @@ function filtrosDeArea(atual, marca) {
       ${A.areaIcone(a.id, 22)}<span>${esc(a.nome)}</span></button>`).join("");
 }
 
+/** o adesivo da área, quando houver; senão o ícone vetorial dela */
+function arteDaArea(areaId, tam = 40) {
+  const chave = "area-" + areaId;
+  const a = D.area(areaId);
+  return I.tem(chave) ? I.peca(chave, tam, a ? a.nome : "") : A.areaIcone(areaId, tam);
+}
+
 function cartaoSugestao(area, tipo, i, item) {
   const a = D.area(area);
   const jaTem = tipo === "desafio"
@@ -1083,7 +1098,7 @@ function cartaoSugestao(area, tipo, i, item) {
     : D.estado.metas.some(m => m.titulo === item.titulo && !m.concluida);
   return `<div class="card sugestao reveal" style="--sg:var(--${a.cor});--sg-claro:var(--${a.cor}-claro)">
     <div class="sugestao-topo">
-      <span class="sugestao-icone">${A.areaIcone(area, 40)}</span>
+      <span class="sugestao-icone">${arteDaArea(area, 44)}</span>
       <span class="etq etq-cat" style="background:var(--${a.cor}-claro)">
         <i class="ponto" style="background:var(--${a.cor})"></i>${esc(a.nome)}</span>
     </div>
@@ -1221,7 +1236,7 @@ function desenharRevisao() {
         `<li><span>${esc(m.titulo)}</span><span class="apoio" style="margin-left:auto">${D.progressoMeta(m)}%</span></li>`).join("")}</ul>`
         : `<p class="apoio">Nenhuma meta vencendo agora.</p>`}</div>
     ${r.percentual >= 80 && r.total > 0 ? `<div class="card largo reveal" style="text-align:center">
-      ${A.agnes("acolhedora_laco", 96)}<p style="font-weight:600">Que semana!</p>
+      ${I.peca("momento-revisao", 96, "Agnes de manta")}<p style="font-weight:600">Que semana!</p>
       <p class="apoio">Você fechou ${r.percentual}% do que planejou.</p>
       <div style="margin-top:var(--space-3)">${A.chipPalavra("uhul")}</div></div>` : ""}`;
 
@@ -1340,7 +1355,7 @@ function desenharLixeira() {
         <button class="btn-icone" data-lixo-acao="apagar" aria-label="Apagar de vez" style="width:38px;height:38px">${A.mini("excluir", 16)}</button>
       </div>
     </li>`;
-  }).join("") : `<li>${vazio("curiosa", "Lixeira vazia", "Nada foi apagado por aqui.", "", "")}</li>`;
+  }).join("") : `<li>${vazio("curiosa", "Lixeira vazia", "Nada foi apagado por aqui.", "", "", "vazio-lixeira")}</li>`;
 
   observarEntradas();
 }
@@ -1376,7 +1391,7 @@ const TUTORIAL = [
 function desenharTutorial() {
   $("#tutorial-conteudo").innerHTML = `
     <div class="card card-destaque reveal" style="--grad-a:var(--rosa-claro);--grad-b:var(--lilas-claro);text-align:center">
-      ${A.agnes("acolhedora", 96)}
+      ${I.peca("momento-tutorial", 96, "Agnes dando boas-vindas")}
       <p style="font-weight:600;margin-top:var(--space-2)">Oi, eu sou a Agnes</p>
       <p class="apoio">Vou te mostrar o app em ${TUTORIAL.length} passos. Pode voltar aqui quando quiser, em Ajustes.</p>
     </div>
@@ -2334,7 +2349,7 @@ function iniciar() {
 /* ---------------------------------------- versão e atualização
    O app fica guardado no aparelho pra funcionar sem internet. Sem isso aqui,
    uma versão nova no servidor não chegaria até a tela. */
-const VERSAO_APP = "1.4.0";
+const VERSAO_APP = "1.4.1";
 
 function cuidarDaVersao() {
   const marca = $("#versao-app");

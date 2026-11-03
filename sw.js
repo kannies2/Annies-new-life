@@ -1,7 +1,7 @@
 /* Annie's New Life — service worker.
    Guarda o app pra funcionar sem internet, mas sem travar a versão antiga:
    o código vem da rede primeiro, e o cache só entra quando a rede falha. */
-const VERSAO = "1.4.0";
+const VERSAO = "1.4.1";
 const CACHE = "anl-" + VERSAO;
 
 const ARQUIVOS = [
@@ -10,7 +10,7 @@ const ARQUIVOS = [
   "./fonts/AnnieUseYourTelescope-Regular.woff2", "./fonts/Sacramento-Regular.woff2",
   "./fonts/quicksand-latin-400-normal.woff2", "./fonts/quicksand-latin-500-normal.woff2",
   "./fonts/quicksand-latin-600-normal.woff2", "./fonts/quicksand-latin-700-normal.woff2",
-  "./js/agnes-arte.js", "./js/som.js", "./js/biblioteca.js", "./js/arte.js", "./js/dados.js", "./js/assessments.js", "./js/app.js",
+  "./js/agnes-arte.js", "./js/som.js", "./js/ilustra.js", "./js/biblioteca.js", "./js/arte.js", "./js/dados.js", "./js/assessments.js", "./js/app.js",
   "./manifest.webmanifest",
   "./icons/agnes-192.png", "./icons/agnes-512.png"
 ];
