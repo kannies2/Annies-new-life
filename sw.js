@@ -1,7 +1,7 @@
 /* Annie's New Life — service worker.
    Guarda o app pra funcionar sem internet, mas sem travar a versão antiga:
    o código vem da rede primeiro, e o cache só entra quando a rede falha. */
-const VERSAO = "1.3.0";
+const VERSAO = "1.4.0";
 const CACHE = "anl-" + VERSAO;
 
 const ARQUIVOS = [

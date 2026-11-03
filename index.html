@@ -19,6 +19,8 @@
 </head>
 <body>
 
+<div id="barra-leitura" aria-hidden="true"></div>
+
 <header class="topo">
   <div class="marca">
     <span id="marca-agnes"></span>
@@ -61,6 +63,8 @@
         <button class="btn btn-secundario" id="hoje-proximo" aria-label="Próximo dia"></button>
       </div>
     </div>
+
+    <div id="bloco-recado"></div>
 
     <div class="bloco">
       <button class="btn btn-principal" id="btn-nova-tarefa" style="width:100%;justify-content:center">
@@ -159,7 +163,14 @@
         <button class="btn btn-secundario" id="semana-proxima" aria-label="Próxima semana"></button>
       </div>
     </div>
+    <div class="troca-vista" role="tablist" aria-label="Como ver a semana">
+      <button role="tab" id="vista-lista" aria-selected="true" data-vista="lista">Lista</button>
+      <button role="tab" id="vista-quadro" aria-selected="false" data-vista="quadro">Quadro</button>
+      <span class="troca-bolha" aria-hidden="true"></span>
+    </div>
+    <p class="apoio" id="semana-dica"></p>
     <div class="dias" id="semana-dias"></div>
+    <div class="quadro oculto" id="semana-quadro"></div>
   </section>
 
   <!-- ===================== MÊS ===================== -->
@@ -288,6 +299,25 @@
         <h2 class="titulo-m secao-titulo">Ainda por vir</h2>
       </div>
       <div class="grade-trofeus" id="lista-trofeus-faltam"></div>
+    </div>
+  </section>
+
+  <!-- ===================== LIXEIRA ===================== -->
+  <section class="tela" id="tela-lixeira" aria-labelledby="t-lixeira">
+    <div class="faixa" style="--faixa-cor: var(--pessego-claro)">
+      <button class="btn btn-secundario" id="lixeira-voltar" style="margin-bottom:var(--space-3)">Voltar</button>
+      <p class="micro">Lixeira</p>
+      <h1 class="titulo-g" id="t-lixeira">O que você apagou</h1>
+      <p class="apoio" id="lixeira-apoio"></p>
+    </div>
+    <div class="bloco">
+      <div class="secao" data-icone="lixeira" data-cor="pessego">
+        <h2 class="titulo-m secao-titulo">Guardado por 30 dias</h2>
+        <span class="secao-extra">
+          <button class="btn btn-discreto" id="btn-esvaziar" style="min-height:34px;padding:5px 14px">Esvaziar</button>
+        </span>
+      </div>
+      <ul class="lista" id="lista-lixeira"></ul>
     </div>
   </section>
 
@@ -513,6 +543,12 @@
     <span class="ajuste-icone" data-icone="categorias"></span>
     <span class="ajuste-texto"><b>Categorias</b><span class="apoio" id="ajuste-cat-valor"></span></span>
     <button class="btn btn-secundario" id="btn-categorias" style="min-height:40px">Abrir</button>
+  </div>
+
+  <div class="ajuste">
+    <span class="ajuste-icone" data-icone="excluir"></span>
+    <span class="ajuste-texto"><b>Lixeira</b><span class="apoio" id="ajuste-lixeira-valor"></span></span>
+    <button class="btn btn-secundario" id="btn-lixeira" style="min-height:40px">Abrir</button>
   </div>
 
   <div class="ajuste">

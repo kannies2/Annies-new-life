@@ -23,7 +23,7 @@ const SECAO_ICONES = {
   pendentes: () => A.mini("mover", 24), humor: () => A.carinha("bem", 26, "var(--manteiga)"),
   metas: () => A.navIcone("metas"), assessments: () => A.navIcone("revisao"),
   biblioteca: () => A.mini("biblioteca", 24), trofeus: () => A.mini("trofeu", 24),
-  bloqueado: () => A.mini("cadeado", 24),
+  bloqueado: () => A.mini("cadeado", 24), lixeira: () => A.mini("excluir", 24),
   reflexao: () => A.mini("editar", 24), calendario: () => A.navIcone("mes")
 };
 function montarSecoes(raiz = document) {
@@ -43,7 +43,7 @@ const MES_CURTO = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET"
 
 let aba = "hoje", abaAnterior = "hoje";
 const ORDEM = ["hoje", "semana", "mes", "desafios", "metas", "revisao"];
-let areaDesafios = "", areaMetas = "";
+let areaDesafios = "", areaMetas = "", vistaSemana = "lista";
 let diaHoje = D.hoje(), diaSemana = D.hoje(), diaMes = D.hoje(), diaMesSel = D.hoje(), diaRevisao = D.hoje();
 let editandoTarefa = null, tarefaDetalhe = null, metaDaEtapa = null, tarefaReagendar = null;
 let filtroBusca = { status: "", categoriaId: "" };
@@ -93,6 +93,8 @@ function trocarTela(nova) {
   });
   aplicarTema(); desenhar(); moverCorredor();
   window.scrollTo({ top: 0, behavior: "instant" });
+  revelarTarjas(alvo || document);
+  revelarOndinha();
 }
 
 /** o indicador do menu corre até a aba atual */
@@ -215,6 +217,338 @@ function brilhar(caixa) {
   }
 }
 
+/* ---------------------------------------- arrastar a tarefa
+   Puxar para a direita conclui, para a esquerda adia um dia.
+   O card acompanha o dedo, mostra a pista colorida e encaixa sozinho. */
+const LIMIAR = 78;          // quanto precisa andar para valer
+const MAX_ARRASTO = 150;
+
+function ligarArrasto(li) {
+  if (li.dataset.arrasto) return;
+  li.dataset.arrasto = "1";
+
+  let id = null, x0 = 0, y0 = 0, dx = 0, decidido = false, arrastando = false, t0 = 0;
+  const corpo = $(".tarefa-corpo", li);
+
+  const pista = document.createElement("span");
+  pista.className = "pista";
+  pista.innerHTML = `<i class="pista-esq">${A.mini("mover", 20)}<b>Adiar</b></i>
+                     <i class="pista-dir"><b>Concluir</b>${A.mini("ok2", 20)}</i>`;
+  li.insertBefore(pista, li.firstChild);
+
+  const soltar = () => {
+    li.releasePointerCapture?.(id);
+    id = null; arrastando = false; decidido = false;
+    li.classList.remove("arrastando");
+  };
+
+  li.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.target.closest("button:not(.tarefa-corpo)")) return;
+    id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; t0 = performance.now();
+    decidido = false; arrastando = false;
+  });
+
+  li.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== id) return;
+    const ax = e.clientX - x0, ay = e.clientY - y0;
+    if (!decidido) {
+      if (Math.abs(ax) < 10 && Math.abs(ay) < 10) return;
+      decidido = true;
+      // se o dedo foi mais pra cima ou pra baixo, é rolagem, não arrasto
+      if (Math.abs(ay) > Math.abs(ax)) { id = null; return; }
+      arrastando = true;
+      li.setPointerCapture?.(id);
+      li.classList.add("arrastando");
+      if (corpo) corpo.style.pointerEvents = "none";
+    }
+    if (!arrastando) return;
+    e.preventDefault();
+    // resistência depois do limiar, como elástico
+    const bruto = ax;
+    dx = Math.abs(bruto) <= LIMIAR ? bruto
+      : Math.sign(bruto) * (LIMIAR + (Math.abs(bruto) - LIMIAR) * 0.38);
+    dx = Math.max(-MAX_ARRASTO, Math.min(MAX_ARRASTO, dx));
+    li.style.transform = `translateX(${dx}px)`;
+    li.style.transition = "none";
+    const forca = Math.min(1, Math.abs(dx) / LIMIAR);
+    li.style.setProperty("--pista-forca", forca.toFixed(2));
+    li.classList.toggle("vai-concluir", dx > 0 && forca >= 1);
+    li.classList.toggle("vai-adiar", dx < 0 && forca >= 1);
+  });
+
+  const terminar = (e) => {
+    if (e.pointerId !== id) return;
+    const foiArrasto = arrastando;
+    const distancia = dx;
+    const veloc = Math.abs(distancia) / Math.max(1, performance.now() - t0);
+    soltar();
+    if (corpo) setTimeout(() => { corpo.style.pointerEvents = ""; }, 0);
+    if (!foiArrasto) return;
+
+    // inércia: um gesto rápido conta mesmo sem alcançar o limiar
+    const passou = Math.abs(distancia) >= LIMIAR || veloc > 0.55;
+    li.style.transition = "transform 320ms cubic-bezier(.34,1.3,.64,1)";
+    li.style.transform = "";
+    li.style.removeProperty("--pista-forca");
+    li.classList.remove("vai-concluir", "vai-adiar");
+    if (!passou) { S.tocar("toque"); return; }
+
+    const t = acharPorId(li.dataset.id);
+    if (!t) return;
+    if (distancia > 0) acaoTarefa("alternar", t);
+    else adiarUmDia(t);
+  };
+  li.addEventListener("pointerup", terminar);
+  li.addEventListener("pointercancel", terminar);
+}
+
+/** adia a tarefa para o dia seguinte, com desfazer */
+function adiarUmDia(t) {
+  const real = D.materializar(t);
+  const de = real.data, para = D.somaDias(real.data || D.hoje(), 1);
+  D.atualizarTarefa(real.id, { data: para });
+  S.tocar("toque");
+  desenhar();
+  avisarNaTela(`"${cortar(real.titulo)}" foi para ${D.dataCurta(para)}.`, {
+    rotulo: "Desfazer",
+    acao: () => { D.atualizarTarefa(real.id, { data: de }); S.tocar("desmarcar"); desenhar(); }
+  });
+}
+const cortar = (s, n = 28) => (s || "").length > n ? (s || "").slice(0, n - 1) + "…" : (s || "");
+
+/** liga o gesto em todas as tarefas da tela */
+function ligarArrastos(raiz = document) {
+  if (!window.PointerEvent) return;
+  $$(".tarefa", raiz).forEach(ligarArrasto);
+}
+
+/* ---------------------------------------- a Agnes nos momentos-chave
+   Ela aparece quando há o que dizer, e fica quieta no resto do tempo. */
+
+/** a expressão dela segue o estado do dia */
+function humorDaAgnes(tarefas, feitas) {
+  if (!tarefas.length) return "curiosa";
+  if (feitas.length === tarefas.length) return "acolhedora";
+  if (feitas.length / tarefas.length >= 0.5) return "feliz";
+  return "feliz";
+}
+
+/** mostra um recadinho dela no topo da tela Hoje, no máximo um por vez */
+function recadoDaAgnes(texto, expr = "acolhedora") {
+  const antigo = $(".recado");
+  if (antigo) antigo.remove();
+  const alvo = $("#bloco-recado");
+  if (!alvo) return;
+  alvo.innerHTML = `<div class="card recado">
+    <span class="recado-agnes">${A.agnes(expr, 58)}</span>
+    <p class="recado-texto">${esc(texto)}</p>
+    <button class="recado-fechar" aria-label="Fechar recado">${A.mini("fechar", 16)}</button>
+  </div>`;
+  const card = $(".recado", alvo);
+  if (!semMovimento()) {
+    card.animate([{ opacity: 0, transform: "translateY(-10px) scale(.97)" }, { opacity: 1, transform: "none" }],
+      { duration: 420, easing: "cubic-bezier(.34,1.3,.64,1)" });
+  }
+  $(".recado-fechar", card).onclick = () => {
+    if (semMovimento()) { card.remove(); return; }
+    card.animate([{ opacity: 1 }, { opacity: 0, transform: "translateY(-8px)" }],
+      { duration: 200, easing: "ease-in" }).onfinish = () => card.remove();
+  };
+}
+
+/** decide se há algo a dizer hoje */
+function verMomentos() {
+  if (aba !== "hoje" || diaHoje !== D.hoje()) return;
+  const alvo = $("#bloco-recado");
+  if (!alvo || alvo.dataset.jaFalou === D.hoje()) return;
+
+  const ontemAberto = visitaAnterior;
+  const tarefas = D.tarefasDoDia(diaHoje);
+  const feitas = tarefas.filter(t => t.feita);
+  const atrasadas = D.pendentesAnteriores(diaHoje);
+  const seqHumor = D.humorSequencia(D.somaDias(D.hoje(), -1));
+  const melhorHabito = D.estado.habitos.reduce((n, h) => Math.max(n, D.sequencia(h, diaHoje)), 0);
+
+  let recado = null, expr = "acolhedora";
+
+  if (ontemAberto && ontemAberto < D.somaDias(D.hoje(), -3)) {
+    const dias = Math.round((D.deISO(D.hoje()) - D.deISO(ontemAberto)) / 86400000);
+    recado = `Que bom te ver. Fazia ${dias} dias. Comece pelo que for mais leve.`;
+    expr = "acolhedora";
+  } else if (melhorHabito >= 3 && melhorHabito % 3 === 0) {
+    recado = `${melhorHabito} dias seguidos num hábito. Isso já virou rotina.`;
+    expr = "feliz";
+  } else if (seqHumor >= 3) {
+    recado = `Você registrou o humor ${seqHumor} dias seguidos. Dá pra ver o desenho da semana na Revisão.`;
+    expr = "curiosa";
+  } else if (atrasadas.length >= 3) {
+    recado = `${atrasadas.length} coisas ficaram para trás. Escolha uma só e deixe o resto quieto.`;
+    expr = "curiosa";
+  } else if (!tarefas.length) {
+    recado = `Dia em branco. Dá pra encher ou dá pra descansar, você escolhe.`;
+    expr = "curiosa";
+  } else if (feitas.length === tarefas.length && tarefas.length >= 2) {
+    recado = `Tudo riscado. Esse dia já está ganho.`;
+    expr = "acolhedora";
+  }
+
+  if (!recado) { alvo.innerHTML = ""; return; }
+  alvo.dataset.jaFalou = D.hoje();
+  recadoDaAgnes(recado, expr);
+}
+
+/** guarda o último dia em que o app foi aberto, para saber quando ela some.
+    O valor anterior fica aqui, porque é ele que interessa. */
+let visitaAnterior = "";
+function marcarVisita() {
+  visitaAnterior = D.estado.ultimoDia || "";
+  if (visitaAnterior !== D.hoje()) { D.estado.ultimoDia = D.hoje(); D.salvar(); }
+}
+
+/** depois de apagar, oferece o caminho de volta na hora */
+function avisarApagado(nome) {
+  const reg = D.estado.lixeira[0];
+  avisarNaTela(`"${cortar(nome)}" foi para a lixeira.`, {
+    rotulo: "Desfazer",
+    acao: () => {
+      if (reg) D.restaurar(reg.id);
+      S.tocar("marcar");
+      desenhar();
+    }
+  });
+}
+
+/** a bolha do alternador corre até a aba escolhida */
+function moverBolha() {
+  const caixa = $(".troca-vista");
+  if (!caixa) return;
+  const b = $('[aria-selected="true"]', caixa), bolha = $(".troca-bolha", caixa);
+  if (!b || !bolha) return;
+  const r = b.getBoundingClientRect(), rc = caixa.getBoundingClientRect();
+  bolha.style.width = r.width + "px";
+  bolha.style.transform = `translateX(${r.left - rc.left}px)`;
+}
+
+/** a saudação muda com a hora do dia */
+function saudacaoDaHora(nome) {
+  const h = new Date().getHours();
+  const quem = nome ? `, ${nome}` : "";
+  if (h < 5) return `Boa madrugada${quem}`;
+  if (h < 12) return `Bom dia${quem}`;
+  if (h < 18) return `Boa tarde${quem}`;
+  return `Boa noite${quem}`;
+}
+
+/** o texto aparece letra por letra, no ritmo de quem escreve à mão */
+function escrever(el, texto, atraso = 0) {
+  if (!el) return;
+  if (semMovimento()) { el.textContent = texto; return; }
+  el.textContent = "";
+  el.setAttribute("aria-label", texto);
+  const frag = document.createDocumentFragment();
+  let i = 0;
+  // as letras ficam agrupadas por palavra, senão a linha quebra no meio dela
+  texto.split(" ").forEach((palavra, p, todas) => {
+    const bloco = document.createElement("span");
+    bloco.className = "palavra";
+    bloco.setAttribute("aria-hidden", "true");
+    [...palavra].forEach((c) => {
+      const s = document.createElement("span");
+      s.className = "letra";
+      s.textContent = c;
+      // a mão hesita um pouco depois da vírgula
+      s.style.animationDelay = `${atraso + i * 42 + (/[,.!?]/.test(palavra[0]) ? 0 : 0)}ms`;
+      i++;
+      bloco.appendChild(s);
+    });
+    frag.appendChild(bloco);
+    if (p < todas.length - 1) { frag.appendChild(document.createTextNode(" ")); i++; }
+  });
+  el.appendChild(frag);
+}
+
+/** parallax: a decoração da faixa anda mais devagar que o resto */
+function ligarParallax() {
+  if (semMovimento()) return;
+  let pedido = false;
+  const mover = () => {
+    pedido = false;
+    const y = window.scrollY;
+    const faixa = $(".tela.ativa .faixa");
+    if (!faixa) return;
+    const deco = $(".faixa-deco", faixa), fundo = $(".faixa-fundo", faixa);
+    if (deco) deco.style.transform = `translateY(${Math.min(y * 0.22, 40)}px)`;
+    if (fundo) fundo.style.transform = `translateY(${Math.min(y * 0.1, 24)}px)`;
+    const barra = $("#barra-leitura");
+    if (barra) {
+      const total = document.documentElement.scrollHeight - innerHeight;
+      barra.style.transform = `scaleX(${total > 60 ? Math.min(1, y / total) : 0})`;
+    }
+  };
+  addEventListener("scroll", () => {
+    if (pedido) return;
+    pedido = true;
+    requestAnimationFrame(mover);
+  }, { passive: true });
+  mover();
+}
+
+/** números sobem até o valor, em vez de aparecerem prontos */
+function animarNumeros(raiz = document) {
+  $$("[data-num]", raiz).forEach(el => {
+    const alvo = Number(el.dataset.num);
+    if (!isFinite(alvo)) return;
+    const sufixo = el.dataset.sufixo || "";
+    if (semMovimento() || alvo === 0) { el.textContent = alvo + sufixo; return; }
+    const dur = Math.min(900, 320 + Math.abs(alvo) * 22);
+    const inicio = performance.now();
+    el.textContent = "0" + sufixo;
+    const passo = (agora) => {
+      const t = Math.min(1, (agora - inicio) / dur);
+      // desacelera no fim, como se estivesse chegando
+      const suave = 1 - Math.pow(1 - t, 3);
+      el.textContent = Math.round(alvo * suave) + sufixo;
+      if (t < 1) requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+  });
+}
+
+/** as tarjas de seção entram por máscara, da esquerda para a direita */
+function revelarTarjas(raiz = document) {
+  if (semMovimento()) return;
+  $$(".secao .tarja-fundo", raiz).forEach((t, i) => {
+    t.style.clipPath = "inset(0 100% 0 0 round 10px)";
+    setTimeout(() => {
+      t.style.transition = "clip-path 520ms cubic-bezier(.2,.8,.2,1)";
+      t.style.clipPath = "inset(0 0 0 0 round 10px)";
+    }, 60 + i * 70);
+  });
+}
+
+/** a ondinha da faixa é descoberta junto com a tela */
+function revelarOndinha(raiz = document) {
+  if (semMovimento()) return;
+  const o = $(".tela.ativa .ondinha", raiz);
+  if (!o) return;
+  o.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }],
+    { duration: 620, easing: "cubic-bezier(.2,.8,.2,1)", delay: 90, fill: "backwards" });
+}
+
+/** os elos da corrente aparecem um atrás do outro */
+function animarCorrentes(raiz = document) {
+  if (semMovimento() || typeof Element.prototype.animate !== "function") return;
+  $$(".corrente", raiz).forEach(c => {
+    if (c.dataset.animada) return;
+    c.dataset.animada = "1";
+    [...c.children].forEach((elo, i) => {
+      elo.animate([{ transform: "scale(0)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }],
+        { duration: 320, delay: i * 38, easing: "cubic-bezier(.34,1.3,.64,1)", fill: "backwards" });
+    });
+  });
+}
+
 /** anéis e barras crescem do zero */
 function animarProgresso(raiz = document) {
   if (semMovimento()) return;
@@ -234,9 +568,9 @@ function animarProgresso(raiz = document) {
   });
 }
 
-function festejarComSom(comAgnes, texto, sub) {
+function festejarComSom(comAgnes, texto, sub, opcoes) {
   S.tocar("festa");
-  A.festejar(comAgnes, texto, sub);
+  A.festejar(comAgnes, texto, sub, opcoes);
 }
 
 /* ---------------------------------------- peças */
@@ -254,6 +588,40 @@ function etiquetaPrazo(t) {
   if (t.data === D.somaDias(h, 1)) return `<span class="etq etq-amanha">Amanhã</span>`;
   return "";
 }
+/** mostra quantos passos já foram feitos, com uma barrinha */
+function etiquetaPassos(t) {
+  const { feitos, total } = D.progressoPassos(t);
+  if (!total) return "";
+  const pct = Math.round((feitos / total) * 100);
+  return `<span class="etq etq-passos ${feitos === total ? "cheia" : ""}" title="Subtarefas">
+    <span class="passos-barra"><i style="width:${pct}%"></i></span>${feitos}/${total}</span>`;
+}
+
+/** o checklist da tarefa, usado na tela de detalhe */
+function listaPassos(t) {
+  const ps = D.passos(t);
+  const { feitos, total } = D.progressoPassos(t);
+  return `<div class="card" id="card-passos">
+    <div class="passos-topo">
+      <p class="micro" style="margin:0">Subtarefas</p>
+      ${total ? `<span class="micro" style="color:var(--framboesa)">${feitos} de ${total}</span>` : ""}
+    </div>
+    ${total ? `<div class="meta-barra" style="margin-top:var(--space-2)"><span style="width:${total ? (feitos / total) * 100 : 0}%"></span></div>` : ""}
+    <ul class="passos" id="lista-passos">
+      ${ps.map(p => `<li class="passo ${p.feito ? "feito" : ""}" data-passo="${p.id}">
+        <button class="caixa" role="checkbox" aria-checked="${p.feito}" data-acao="passo-alternar"
+          aria-label="${esc(p.titulo)}"></button>
+        <span class="passo-titulo">${esc(p.titulo)}</span>
+        <button class="passo-excluir" data-acao="passo-excluir" aria-label="Excluir subtarefa">${A.mini("excluir", 15)}</button>
+      </li>`).join("")}
+    </ul>
+    <form id="form-passo" class="passo-novo">
+      <input type="text" name="titulo" maxlength="120" placeholder="Quebrar em um passo menor" autocomplete="off" aria-label="Nova subtarefa">
+      <button type="submit" class="btn btn-secundario" aria-label="Adicionar subtarefa">${A.mini("mais", 18)}</button>
+    </form>
+  </div>`;
+}
+
 function linhaTarefa(t, opcoes = {}) {
   const meta = D.estado.metas.find(m => m.id === t.metaId);
   const classes = ["tarefa", "reveal"];
@@ -272,6 +640,7 @@ function linhaTarefa(t, opcoes = {}) {
         ${meta ? `<span class="etq etq-meta">${esc(meta.titulo)}</span>` : ""}
         ${t.hora ? `<span class="apoio">${esc(t.hora)}</span>` : ""}
         ${t.repete && t.repete.tipo !== "nenhuma" ? `<span class="repete" title="Repete">${A.mini("repete", 16)}</span>` : ""}
+        ${etiquetaPassos(t)}
         ${opcoes.mostrarData ? `<span class="apoio">${D.dataCurta(t.data)}</span>` : ""}
       </div>
     </div>
@@ -306,15 +675,13 @@ function desenharHoje() {
 
   const sauda = $("#t-hoje");
   const nome = D.nome();
-  sauda.textContent = ehHoje ? (nome ? `Oi, ${nome}` : "Oi") : (nome || "Esse dia");
-  sauda.classList.remove("anima");
-  void sauda.offsetWidth;
-  if (!semMovimento()) sauda.classList.add("anima");
+  const texto = ehHoje ? saudacaoDaHora(nome) : (nome || "Esse dia");
+  escrever(sauda, texto, 80);
   $("#hoje-progresso").textContent = tarefas.length
     ? `${feitas.length} de ${tarefas.length} tarefas concluídas`
     : "Nenhuma tarefa ainda";
   $("#tarefas-conta").textContent = pendentes.length ? `${pendentes.length} pendente${pendentes.length === 1 ? "" : "s"}` : "";
-  $("#hoje-deco").innerHTML = A.agnes(tarefas.length && feitas.length === tarefas.length ? "acolhedora" : "feliz", 64);
+  $("#hoje-deco").innerHTML = A.agnes(humorDaAgnes(tarefas, feitas), 64);
 
   $("#lista-tarefas").innerHTML = pendentes.length
     ? pendentes.map(t => linhaTarefa(t)).join("")
@@ -328,9 +695,9 @@ function desenharHoje() {
   $("#pendentes-conta").textContent = atrasadas.length ? `${atrasadas.length} item${atrasadas.length > 1 ? "s" : ""}` : "";
   $("#lista-pendentes").innerHTML = atrasadas.map(t => linhaTarefa(t, { mostrarData: true })).join("");
 
-  desenharHabitos(); desenharDesafiosHoje(); desenharHumor();
+  desenharHabitos(); desenharDesafiosHoje(); desenharHumor(); verMomentos();
   $("#anotacao").value = D.anotacao(diaHoje);
-  observarEntradas(); animarProgresso();
+  observarEntradas(); animarProgresso(); animarNumeros(); animarCorrentes(); ligarArrastos();
 }
 
 function desenharHabitos() {
@@ -475,6 +842,14 @@ function avisarSalvo(texto = "Guardado ✓") {
 
 /* ---------------------------------------- SEMANA */
 function desenharSemana() {
+  if (vistaSemana === "quadro") { desenharQuadro(); return; }
+  $("#semana-dias").classList.remove("oculto");
+  $("#semana-quadro").classList.add("oculto");
+  $("#semana-dica").textContent = "Cada dia com as suas tarefas. Puxe a tarefa para o lado para concluir ou adiar.";
+  desenharSemanaLista();
+}
+
+function desenharSemanaLista() {
   const ini = D.inicioSemana(diaSemana);
   const dias = Array.from({ length: 7 }, (_, i) => D.somaDias(ini, i));
   $("#t-semana").textContent = `${D.dataCurta(ini)} a ${D.dataCurta(dias[6])}`;
@@ -496,7 +871,150 @@ function desenharSemana() {
              <button class="btn btn-discreto" data-nova-em="${d}" style="min-height:36px;padding:6px 14px;margin-left:var(--space-2)">Adicionar</button></li>`}
       </ul></div>`;
   }).join("");
-  observarEntradas();
+  observarEntradas(); animarCorrentes(); ligarArrastos();
+}
+
+/* ---------------------------------------- QUADRO
+   Três colunas com as tarefas da semana. Arrastar o cartão muda a coluna. */
+function desenharQuadro() {
+  $("#semana-dias").classList.add("oculto");
+  $("#semana-quadro").classList.remove("oculto");
+  $("#semana-dica").textContent = "Arraste o cartão de uma coluna para a outra. No celular, deslize o quadro para o lado.";
+
+  const ini = D.inicioSemana(diaSemana);
+  const dias = Array.from({ length: 7 }, (_, i) => D.somaDias(ini, i));
+  const todas = dias.flatMap(d => D.tarefasDoDia(d));
+  $("#t-semana").textContent = `${D.dataCurta(ini)} a ${D.dataCurta(dias[6])}`;
+  const pend = todas.filter(t => !t.feita).length;
+  $("#semana-apoio").textContent = `${todas.length} tarefa${todas.length === 1 ? "" : "s"}, ${pend} pendente${pend === 1 ? "" : "s"}`;
+
+  $("#semana-quadro").innerHTML = D.COLUNAS.map(c => {
+    const daColuna = todas.filter(t => D.colunaDe(t) === c.id);
+    return `<section class="coluna" data-coluna="${c.id}" style="--col:var(--${c.cor});--col-claro:var(--${c.cor}-claro)">
+      <header class="coluna-topo">
+        <span class="coluna-ponto"></span>
+        <h3 class="titulo-m">${c.nome}</h3>
+        <span class="micro" data-num="${daColuna.length}">0</span>
+      </header>
+      <div class="coluna-corpo" data-solta="${c.id}">
+        ${daColuna.map(cartaoQuadro).join("") ||
+          `<p class="coluna-vazia">${c.id === "feito" ? "Nada aqui ainda." : "Solte um cartão aqui."}</p>`}
+      </div>
+    </section>`;
+  }).join("");
+
+  ligarQuadro();
+  observarEntradas(); animarNumeros();
+}
+
+function cartaoQuadro(t) {
+  const cat = D.categoria(t.categoriaId);
+  const obj = D.deISO(t.data);
+  const { feitos, total } = D.progressoPassos(t);
+  return `<article class="cartao ${t.prioridade && !t.feita ? "prioridade" : ""} ${!t.feita && t.data < D.hoje() ? "atrasada" : ""}"
+    data-id="${t.id}" tabindex="0" aria-label="${esc(t.titulo)}">
+    <span class="cartao-pega" aria-hidden="true"></span>
+    <p class="cartao-titulo">${esc(t.titulo)}</p>
+    <div class="cartao-pe">
+      <span class="cartao-dia">${String(obj.getDate()).padStart(2, "0")} ${MES_CURTO[obj.getMonth()]}</span>
+      ${t.hora ? `<span class="cartao-hora">${esc(t.hora)}</span>` : ""}
+      ${total ? `<span class="cartao-passos">${feitos}/${total}</span>` : ""}
+      ${cat ? `<span class="cartao-cat" style="background:var(--${cat.cor})" title="${esc(cat.nome)}"></span>` : ""}
+    </div>
+  </article>`;
+}
+
+/** arrastar o cartão entre as colunas, com encaixe */
+function ligarQuadro() {
+  if (!window.PointerEvent) return;
+  const quadro = $("#semana-quadro");
+  let carta = null, fantasma = null, id = null, ox = 0, oy = 0, decidido = false, alvoCol = null;
+
+  const colunaSob = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const c = el && el.closest("[data-solta]");
+    return c || null;
+  };
+
+  quadro.onpointerdown = (e) => {
+    const c = e.target.closest(".cartao");
+    if (!c || (e.pointerType === "mouse" && e.button !== 0)) return;
+    carta = c; id = e.pointerId; decidido = false;
+    const r = c.getBoundingClientRect();
+    ox = e.clientX - r.left; oy = e.clientY - r.top;
+  };
+
+  quadro.onpointermove = (e) => {
+    if (!carta || e.pointerId !== id) return;
+    if (!decidido) {
+      const r = carta.getBoundingClientRect();
+      if (Math.abs(e.clientX - (r.left + ox)) < 8 && Math.abs(e.clientY - (r.top + oy)) < 8) return;
+      decidido = true;
+      carta.setPointerCapture?.(id);
+      fantasma = carta.cloneNode(true);
+      fantasma.classList.add("cartao-voando");
+      fantasma.style.width = r.width + "px";
+      document.body.appendChild(fantasma);
+      carta.classList.add("cartao-origem");
+      S.tocar("toque");
+    }
+    e.preventDefault();
+    fantasma.style.transform = `translate(${e.clientX - ox}px, ${e.clientY - oy}px) rotate(-2deg)`;
+    const sob = colunaSob(e.clientX, e.clientY);
+    if (sob !== alvoCol) {
+      if (alvoCol) alvoCol.classList.remove("recebendo");
+      alvoCol = sob;
+      if (alvoCol) alvoCol.classList.add("recebendo");
+    }
+  };
+
+  const largar = (e) => {
+    if (!carta || e.pointerId !== id) return;
+    const cartaRef = carta, destino = alvoCol, moveu = decidido;
+    if (alvoCol) alvoCol.classList.remove("recebendo");
+    if (fantasma) fantasma.remove();
+    cartaRef.classList.remove("cartao-origem");
+    carta = null; fantasma = null; id = null; alvoCol = null; decidido = false;
+    if (!moveu) return;
+
+    const t = acharPorId(cartaRef.dataset.id);
+    if (!t || !destino) { S.tocar("desmarcar"); return; }
+    const col = destino.dataset.solta;
+    const real = D.materializar(t);
+    const antes = D.colunaDe(real);
+    if (antes === col) return;
+    D.moverParaColuna(real.id, col);
+    S.tocar(col === "feito" ? "marcar" : "toque");
+    desenharQuadro();
+    const novo = $(`.cartao[data-id="${CSS.escape(real.id)}"]`);
+    if (novo && !semMovimento()) {
+      novo.animate([{ transform: "scale(.9)", opacity: .6 }, { transform: "scale(1.03)", offset: .6 }, { transform: "none", opacity: 1 }],
+        { duration: 380, easing: "cubic-bezier(.34,1.3,.64,1)" });
+    }
+    if (col === "feito") {
+      const dia = D.tarefasDoDia(real.data);
+      if (dia.length && dia.every(x => x.feita)) festejarComSom(true, "DIA", "FEITO");
+    }
+  };
+  quadro.onpointerup = largar;
+  quadro.onpointercancel = largar;
+
+  // teclado: setas movem o cartão de coluna
+  quadro.onkeydown = (e) => {
+    const c = e.target.closest(".cartao");
+    if (!c || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+    const t = acharPorId(c.dataset.id); if (!t) return;
+    const real = D.materializar(t);
+    const i = D.COLUNAS.findIndex(x => x.id === D.colunaDe(real));
+    const j = Math.max(0, Math.min(D.COLUNAS.length - 1, i + (e.key === "ArrowRight" ? 1 : -1)));
+    if (i === j) return;
+    e.preventDefault();
+    D.moverParaColuna(real.id, D.COLUNAS[j].id);
+    S.tocar("toque");
+    desenharQuadro();
+    const novo = $(`.cartao[data-id="${CSS.escape(real.id)}"]`);
+    if (novo) novo.focus();
+  };
 }
 
 /* ---------------------------------------- MÊS */
@@ -527,7 +1045,7 @@ function desenharMes() {
   const ts = D.tarefasDoDia(diaMesSel);
   $("#mes-lista").innerHTML = ts.length ? ts.map(t => linhaTarefa(t)).join("")
     : `<li class="card apoio" style="text-align:center">Nenhuma tarefa nesse dia.</li>`;
-  observarEntradas();
+  observarEntradas(); animarCorrentes(); ligarArrastos();
 }
 
 /* ---------------------------------------- DESAFIOS */
@@ -603,7 +1121,7 @@ function desenharDesafios() {
   $("#desafios-feitos-conta").textContent = feitos.length ? `${feitos.length}` : "";
   $("#lista-desafios-feitos").innerHTML = feitos.map(cardDesafio).join("");
 
-  observarEntradas(); animarProgresso();
+  observarEntradas(); animarProgresso(); animarNumeros(); animarCorrentes(); ligarArrastos();
 }
 
 /* ---------------------------------------- METAS */
@@ -624,7 +1142,7 @@ function desenharMetas() {
     B.metasDe(aid).map((item, i) => cartaoSugestao(aid, "meta", i, item))).join("");
 
   desenharAssessments();
-  observarEntradas(); animarProgresso();
+  observarEntradas(); animarProgresso(); animarNumeros(); animarCorrentes(); ligarArrastos();
 }
 
 function cardMeta(m, i) {
@@ -680,7 +1198,7 @@ function desenharAssessments() {
 function desenharRevisao() {
   const r = D.resumoSemana(diaRevisao);
   $("#t-revisao").textContent = `${D.dataCurta(r.ini)} a ${D.dataCurta(D.somaDias(r.ini, 6))}`;
-  $("#revisao-apoio").textContent = `${r.percentual}% das tarefas concluídas`;
+  $("#revisao-apoio").innerHTML = `<span data-num="${r.percentual}" data-sufixo="%">0%</span> das tarefas concluídas`;
 
   const maior = Math.max(1, ...r.porDia.map(d => d.total));
   const grafico = r.porDia.map(d => `
@@ -692,10 +1210,10 @@ function desenharRevisao() {
 
   $("#revisao-bento").innerHTML = `
     <div class="card reveal card-destaque" style="--grad-a:var(--menta-claro);--grad-b:var(--periwinkle-claro)">
-      <p class="micro">Concluídas</p><p class="numerao">${r.feitas}</p><p class="apoio">de ${r.total} tarefas</p></div>
-    <div class="card reveal"><p class="micro">Pendentes</p><p class="numerao">${r.pendentes}</p>
+      <p class="micro">Concluídas</p><p class="numerao" data-num="${r.feitas}">0</p><p class="apoio">de ${r.total} tarefas</p></div>
+    <div class="card reveal"><p class="micro">Pendentes</p><p class="numerao" data-num="${r.pendentes}">0</p>
       <p class="apoio">para reagendar ou soltar</p></div>
-    <div class="card reveal"><p class="micro">Hábitos</p><p class="numerao">${r.habitosCumpridos}</p>
+    <div class="card reveal"><p class="micro">Hábitos</p><p class="numerao" data-num="${r.habitosCumpridos}">0</p>
       <p class="apoio">marcações na semana</p></div>
     <div class="card largo reveal"><p class="micro">Por dia</p><div class="grafico">${grafico}</div></div>
     <div class="card largo reveal"><p class="micro">Metas com prazo próximo</p>
@@ -710,7 +1228,7 @@ function desenharRevisao() {
   desenharPainelHumor(r);
   $("#reflexao").value = D.reflexao(r.semana);
   $("#reflexao-estado").textContent = D.reflexao(r.semana).trim() ? "guardada" : "";
-  observarEntradas(); animarProgresso();
+  observarEntradas(); animarProgresso(); animarNumeros(); animarCorrentes(); ligarArrastos();
 }
 
 /* ---------------------------------------- HUMOR: acompanhamento */
@@ -772,8 +1290,8 @@ function desenharPainelHumor(r) {
 function desenharTrofeus() {
   const ganhos = D.selosGanhos();
   const faltam = D.SELOS.filter(s => !D.estado.selos[s.id]);
-  $("#trofeus-apoio").textContent = ganhos.length
-    ? `${ganhos.length} de ${D.SELOS.length} conquistados`
+  $("#trofeus-apoio").innerHTML = ganhos.length
+    ? `<span data-num="${ganhos.length}">0</span> de ${D.SELOS.length} conquistados`
     : "Nenhum ainda. Eles aparecem sozinhos conforme você usa o app.";
   $("#trofeus-conta").textContent = ganhos.length ? `${ganhos.length}` : "";
   $("#bloco-trofeus-ganhos").classList.toggle("oculto", !ganhos.length);
@@ -794,6 +1312,36 @@ function desenharTrofeus() {
     </div>`).join("")
     : `<p class="apoio">Você conquistou todos. Sério.</p>`;
 
+  observarEntradas(); animarNumeros();
+}
+
+/* ---------------------------------------- LIXEIRA */
+const NOME_TIPO = { tarefa: "Tarefa", habito: "Hábito", meta: "Meta", desafio: "Desafio", categoria: "Categoria" };
+
+function desenharLixeira() {
+  D.limparLixeiraVelha();
+  const itens = D.estado.lixeira;
+  $("#lixeira-apoio").textContent = itens.length
+    ? `${itens.length} ite${itens.length === 1 ? "m" : "ns"} guardado${itens.length === 1 ? "" : "s"}. Depois de 30 dias somem sozinhos.`
+    : "Nada aqui. O que você apagar fica guardado por 30 dias antes de sumir.";
+  $("#btn-esvaziar").disabled = !itens.length;
+
+  $("#lista-lixeira").innerHTML = itens.length ? itens.map(r => {
+    const quando = new Date(r.em);
+    const dias = Math.max(0, 30 - Math.floor((Date.now() - quando.getTime()) / 86400000));
+    return `<li class="card lixo reveal" data-lixo="${r.id}">
+      <div class="lixo-corpo">
+        <p class="micro">${NOME_TIPO[r.tipo] || r.tipo}${r.itens.length > 1 ? ` · ${r.itens.length} itens` : ""}</p>
+        <p class="lixo-titulo">${esc(r.rotulo || "Sem nome")}</p>
+        <p class="apoio">Apagado em ${D.dataCurta(D.iso(quando))} · some em ${dias} dia${dias === 1 ? "" : "s"}</p>
+      </div>
+      <div class="lixo-acoes">
+        <button class="btn btn-principal" data-lixo-acao="restaurar" style="min-height:38px;padding:6px 16px">Restaurar</button>
+        <button class="btn-icone" data-lixo-acao="apagar" aria-label="Apagar de vez" style="width:38px;height:38px">${A.mini("excluir", 16)}</button>
+      </div>
+    </li>`;
+  }).join("") : `<li>${vazio("curiosa", "Lixeira vazia", "Nada foi apagado por aqui.", "", "")}</li>`;
+
   observarEntradas();
 }
 
@@ -803,6 +1351,12 @@ const TUTORIAL = [
     texto: "Tudo que importa no dia mora aqui: as tarefas, os hábitos, os desafios ativos e o seu humor. As setas no topo levam pro dia anterior e pro seguinte, e o botão Hoje traz você de volta." },
   { icone: "tarefas", cor: "rosa", titulo: "Tarefa é coisa de fazer e riscar",
     texto: "Toque em Adicionar tarefa. Em Mais detalhes você escolhe data, horário, categoria, meta ligada e repetição. No celular, toque na tarefa para abrir o detalhe, onde ficam editar, reagendar e excluir." },
+  { icone: "tarefas", cor: "rosa", titulo: "Puxe a tarefa para o lado",
+    texto: "No celular e no computador: arraste a tarefa para a direita e ela é concluída, para a esquerda e ela vai para amanhã. Aparece um aviso com Desfazer, caso tenha sido sem querer." },
+  { icone: "feitas", cor: "periwinkle", titulo: "Quebre em subtarefas",
+    texto: "Abra a tarefa e escreva os passos menores. A linha passa a mostrar quantos já foram, e quando o último é marcado a tarefa se dá por concluída sozinha." },
+  { icone: "calendario", cor: "periwinkle", titulo: "A semana também é um quadro",
+    texto: "Na aba Semana, troque de Lista para Quadro. Três colunas, a fazer, fazendo e feito, e você arrasta o cartão entre elas. No celular, deslize o quadro para o lado; pelo teclado, as setas movem o cartão." },
   { icone: "habitos", cor: "menta", titulo: "Hábito é coisa de repetir",
     texto: "Hábito não tem prazo, tem constância. O diário conta dias seguidos; o semanal conta quantas vezes na semana. A correntinha mostra sua sequência, e a estrela marca o dia de hoje." },
   { icone: "desafios", cor: "lilas", titulo: "Desafio é curto, meta é longa",
@@ -814,7 +1368,9 @@ const TUTORIAL = [
   { icone: "metas", cor: "periwinkle", titulo: "A Revisão é o seu retrovisor",
     texto: "Toda semana ela mostra quanto você fechou, o gráfico por dia, os hábitos, o mapa do humor e um espaço pra escrever a reflexão da semana." },
   { icone: "trofeus", cor: "manteiga", titulo: "Os troféus aparecem sozinhos",
-    texto: "Cada conquista tem uma regra e vira um selo quando você passa por ela. Não precisa fazer nada: a Agnes aparece pra avisar. O troféu fica guardado com a data." }
+    texto: "Cada conquista tem uma regra e vira um selo quando você passa por ela. Não precisa fazer nada: a Agnes aparece pra avisar. O troféu fica guardado com a data." },
+  { icone: "lixeira", cor: "pessego", titulo: "Nada some de vez na hora",
+    texto: "O que você apaga fica trinta dias na lixeira, em Ajustes, e dá pra restaurar com um toque. Esvaziar a lixeira, essa sim, não tem volta." }
 ];
 
 function desenharTutorial() {
@@ -822,7 +1378,7 @@ function desenharTutorial() {
     <div class="card card-destaque reveal" style="--grad-a:var(--rosa-claro);--grad-b:var(--lilas-claro);text-align:center">
       ${A.agnes("acolhedora", 96)}
       <p style="font-weight:600;margin-top:var(--space-2)">Oi, eu sou a Agnes</p>
-      <p class="apoio">Vou te mostrar o app em oito passos. Pode voltar aqui quando quiser, em Ajustes.</p>
+      <p class="apoio">Vou te mostrar o app em ${TUTORIAL.length} passos. Pode voltar aqui quando quiser, em Ajustes.</p>
     </div>
     <ol class="tutorial-passos">
       ${TUTORIAL.map((p, i) => `
@@ -841,7 +1397,7 @@ function desenharTutorial() {
       <button class="btn btn-principal" id="tutorial-pronto" style="margin-top:var(--space-3)">Entendi, bora usar</button>
     </div>`;
   if (!D.estado.tutorialVisto) { D.estado.tutorialVisto = true; D.salvar(); }
-  observarEntradas();
+  observarEntradas(); animarCorrentes(); ligarArrastos();
 }
 
 /* ---------------------------------------- DETALHE */
@@ -878,6 +1434,7 @@ function desenharDetalhe() {
       ${t.repete && t.repete.tipo !== "nenhuma" ? `<p class="apoio" style="margin-top:var(--space-2)">
         ${A.mini("repete", 16)} ${textoRepeticao(t.repete)}</p>` : ""}
     </div>
+    ${listaPassos(t)}
     ${t.obs ? `<div class="card"><p class="micro">Observações</p><p>${esc(t.obs)}</p></div>` : ""}
     ${meta ? `<div class="card"><p class="micro">Meta ligada</p>
       <p style="font-weight:600">${esc(meta.titulo)}</p>
@@ -890,7 +1447,33 @@ function desenharDetalhe() {
       <button class="btn btn-discreto" data-det="excluir">Excluir</button>
     </div>`;
   animarProgresso($("#detalhe-corpo"));
+  ligarFormPasso();
 }
+
+function ligarFormPasso() {
+  const f = $("#form-passo");
+  if (!f) return;
+  f.onsubmit = (ev) => {
+    ev.preventDefault();
+    const t = tarefaDetalhe; if (!t) return;
+    const real = D.materializar(t);
+    if (real.id !== t.id) tarefaDetalhe = real;
+    const v = f.titulo.value.trim();
+    if (!v) return;
+    D.novoPasso(real.id, v);
+    f.titulo.value = "";
+    S.tocar("toque");
+    tarefaDetalhe = D.acharTarefa(real.id);
+    desenharDetalhe();
+    const ultimo = $("#lista-passos .passo:last-child");
+    if (ultimo && !semMovimento()) {
+      ultimo.animate([{ transform: "translateX(-10px)", opacity: 0 }, { transform: "none", opacity: 1 }],
+        { duration: 300, easing: "cubic-bezier(.34,1.3,.64,1)" });
+    }
+    $("#form-passo").titulo.focus();
+  };
+}
+
 function textoRepeticao(r) {
   const nomes = { diaria: "Todo dia", semanal: "Toda semana", mensal: "Todo mês, no mesmo dia" };
   if (r.tipo === "dias") return "Nos dias: " + (r.dias || []).map(d => D.DIAS[d]).join(", ");
@@ -921,13 +1504,14 @@ function desenharBusca() {
     return `<li class="card reveal"><p class="micro">${rotulos[r.tipo]}${r.data ? " · " + D.dataCurta(r.data) : ""}</p>
       <p style="font-weight:600;margin:var(--space-1) 0 0">${esc(texto)}</p></li>`;
   }).join("") : `<li class="apoio" style="text-align:center;padding:var(--space-6)">Nada encontrado.</li>`;
-  observarEntradas();
+  observarEntradas(); animarCorrentes(); ligarArrastos();
 }
 
 function desenhar() {
   ({ hoje: desenharHoje, semana: desenharSemana, mes: desenharMes, desafios: desenharDesafios,
      metas: desenharMetas, revisao: desenharRevisao, busca: desenharBusca,
-     detalhe: desenharDetalhe, trofeus: desenharTrofeus, tutorial: desenharTutorial }[aba] || (() => {}))();
+     detalhe: desenharDetalhe, trofeus: desenharTrofeus, tutorial: desenharTutorial,
+     lixeira: desenharLixeira }[aba] || (() => {}))();
   conferirConquistas();
 }
 
@@ -1031,19 +1615,35 @@ function criarDaBiblioteca(tipo, area, i) {
   avisarNaTela(`Meta criada com ${item.etapas.length} etapas. Abra para pôr um prazo.`);
 }
 
-/** avisinho que sobe por cima do menu */
-function avisarNaTela(texto) {
+/** avisinho que sobe por cima do menu, com um botão opcional de desfazer */
+let relogioAviso = null;
+function avisarNaTela(texto, opcoes = {}) {
   const antigo = $(".aviso-flutuante");
   if (antigo) antigo.remove();
+  clearTimeout(relogioAviso);
+
   const el = document.createElement("div");
   el.className = "aviso-flutuante";
   el.setAttribute("role", "status");
-  el.textContent = texto;
-  document.body.appendChild(el);
-  setTimeout(() => {
+  el.innerHTML = `<span class="aviso-texto"></span>`;
+  $(".aviso-texto", el).textContent = texto;
+
+  const sair = () => {
     el.classList.add("saindo");
     setTimeout(() => el.remove(), 260);
-  }, 3200);
+  };
+
+  if (opcoes.acao) {
+    const b = document.createElement("button");
+    b.className = "aviso-botao";
+    b.textContent = opcoes.rotulo || "Desfazer";
+    b.onclick = () => { clearTimeout(relogioAviso); opcoes.acao(); sair(); };
+    el.appendChild(b);
+  }
+
+  document.body.appendChild(el);
+  relogioAviso = setTimeout(sair, opcoes.acao ? 6000 : 3200);
+  return sair;
 }
 
 /* ---------------------------------------- ajustes */
@@ -1052,6 +1652,10 @@ function pintarAjustes() {
   const escuro = document.documentElement.dataset.tema === "escuro";
   $("#ajuste-tema-valor").textContent = escuro ? "Escuro" : "Claro";
   $("#ajuste-cat-valor").textContent = `${D.estado.categorias.length} categoria${D.estado.categorias.length === 1 ? "" : "s"}`;
+  const n = D.estado.lixeira.length;
+  $("#ajuste-lixeira-valor").textContent = n
+    ? `${n} ite${n === 1 ? "m" : "ns"} dá para recuperar`
+    : "Vazia";
   const bs = $("#btn-som"), bm = $("#btn-musica");
   bs.setAttribute("aria-checked", String(!!D.estado.som));
   bm.setAttribute("aria-checked", String(!!D.estado.musica));
@@ -1170,6 +1774,13 @@ function ligarEventos() {
   $("#btn-tema").onclick = () => { alternarTema(); pintarAjustes(); };
   $("#btn-categorias").onclick = () => { fechar($("#dlg-ajustes")); setTimeout(() => { desenharCategorias(); abrir($("#dlg-categorias")); }, 180); };
   $("#btn-tutorial").onclick = () => { fechar($("#dlg-ajustes")); setTimeout(() => irPara("tutorial"), 180); };
+  $("#btn-lixeira").onclick = () => { fechar($("#dlg-ajustes")); setTimeout(() => irPara("lixeira"), 180); };
+  $("#lixeira-voltar").onclick = () => irPara(abaAnterior === "lixeira" ? "hoje" : abaAnterior);
+  $("#btn-esvaziar").onclick = () => {
+    confirmar("Esvaziar a lixeira?", "Tudo que está aqui some de vez. Isso não tem volta.", () => {
+      D.esvaziarLixeira(); S.tocar("limite"); desenharLixeira();
+    });
+  };
   $("#btn-trocar-nome").onclick = () => { fechar($("#dlg-ajustes")); setTimeout(abrirNome, 180); };
   $("#btn-som").onclick = () => { S.alternar("som"); pintarAjustes(); };
   $("#btn-musica").onclick = () => { S.alternar("musica"); pintarAjustes(); };
@@ -1210,6 +1821,25 @@ function ligarEventos() {
         { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)" });
     }
   };
+  // alternador lista e quadro na semana
+  $$(".troca-vista [data-vista]").forEach(b => {
+    b.onclick = () => {
+      if (vistaSemana === b.dataset.vista) return;
+      vistaSemana = b.dataset.vista;
+      S.tocar("aba");
+      $$(".troca-vista [data-vista]").forEach(x =>
+        x.setAttribute("aria-selected", String(x.dataset.vista === vistaSemana)));
+      moverBolha();
+      const tela = $("#tela-semana");
+      desenharSemana();
+      if (!semMovimento()) {
+        const alvo = vistaSemana === "quadro" ? $("#semana-quadro") : $("#semana-dias");
+        alvo.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
+          { duration: 300, easing: "cubic-bezier(.2,.8,.2,1)" });
+      }
+    };
+  });
+
   $("#hoje-anterior").onclick = () => trocarDia(D.somaDias(diaHoje, -1));
   $("#hoje-proximo").onclick = () => trocarDia(D.somaDias(diaHoje, 1));
   $("#hoje-voltar").onclick = () => trocarDia(D.hoje());
@@ -1292,8 +1922,10 @@ function ligarEventos() {
   $("#habito-excluir").onclick = () => {
     const h = habitoEditando; if (!h) return;
     fechar($("#dlg-habito-editar")); habitoEditando = null;
-    confirmar("Excluir o hábito?", `"${h.nome}" e todo o histórico dele serão apagados.`, () => {
+    confirmar("Excluir o hábito?", `"${h.nome}" vai para a lixeira, com o histórico junto.`, () => {
+      D.paraLixeira("habito", [h], h.nome);
       D.estado.habitos = D.estado.habitos.filter(x => x.id !== h.id); D.salvar();
+      avisarApagado(h.nome);
     });
   };
   $("#form-meta").onsubmit = () => {
@@ -1440,6 +2072,42 @@ function aoClicar(ev) {
     return;
   }
   if (alvo.closest("#humor-tira")) { abrirHumor(); return; }
+
+  // subtarefas
+  const linhaPasso = alvo.closest("[data-passo]");
+  if (linhaPasso && tarefaDetalhe) {
+    const acao = alvo.closest("[data-acao]");
+    const pid = linhaPasso.dataset.passo;
+    const real = D.materializar(tarefaDetalhe);
+    if (acao && acao.dataset.acao === "passo-excluir") {
+      const p = D.passos(real).find(x => x.id === pid);
+      D.excluirPasso(real.id, pid);
+      S.tocar("desmarcar");
+      tarefaDetalhe = D.acharTarefa(real.id);
+      desenhar();
+      if (p) avisarNaTela(`Subtarefa apagada.`, {
+        acao: () => {
+          const novo = D.novoPasso(real.id, p.titulo);
+          if (novo) novo.feito = p.feito;
+          D.salvar(); tarefaDetalhe = D.acharTarefa(real.id); desenhar();
+        }
+      });
+      return;
+    }
+    if (acao && acao.dataset.acao === "passo-alternar") {
+      const antes = !!(D.passos(real).find(x => x.id === pid) || {}).feito;
+      D.alternarPasso(real.id, pid);
+      S.tocar(antes ? "desmarcar" : "marcar");
+      tarefaDetalhe = D.acharTarefa(real.id);
+      const virouFeita = tarefaDetalhe && tarefaDetalhe.feita && !antes;
+      desenhar();
+      if (virouFeita) festejarComSom(true, "TUDO", "FEITO", {
+        titulo: "Todos os passos",
+        texto: `"${cortar(tarefaDetalhe.titulo, 40)}" ficou pronta.`
+      });
+      return;
+    }
+  }
   // filtros de área da biblioteca
   const fArea = alvo.closest("[data-area-desafio]");
   if (fArea) { areaDesafios = fArea.dataset.areaDesafio; S.tocar("toque"); desenharDesafios(); return; }
@@ -1451,6 +2119,26 @@ function aoClicar(ev) {
   if (sug) { criarDaBiblioteca(sug.dataset.sugestao, sug.dataset.area, Number(sug.dataset.i)); return; }
 
   if (alvo.closest("#tutorial-pronto")) { irPara("hoje"); return; }
+
+  // lixeira
+  const linhaLixo = alvo.closest("[data-lixo]");
+  if (linhaLixo) {
+    const acao = alvo.closest("[data-lixo-acao]");
+    if (!acao) return;
+    const rid = linhaLixo.dataset.lixo;
+    const reg = D.estado.lixeira.find(r => r.id === rid);
+    if (acao.dataset.lixoAcao === "restaurar") {
+      D.restaurar(rid);
+      S.tocar("marcar");
+      desenharLixeira();
+      avisarNaTela(`"${cortar(reg ? reg.rotulo : "")}" voltou.`);
+      return;
+    }
+    confirmar("Apagar de vez?", `"${reg ? reg.rotulo : ""}" não poderá mais ser recuperado.`, () => {
+      D.apagarDeVez(rid); S.tocar("limite"); desenharLixeira();
+    });
+    return;
+  }
 
   const calDia = alvo.closest("[data-dia]");
   if (calDia) { diaMesSel = calDia.dataset.dia; desenharMes(); return; }
@@ -1497,8 +2185,10 @@ function aoClicar(ev) {
     const d = D.estado.desafios.find(x => x.id === cardDesafio.dataset.desafio);
     if (!d) return;
     if (alvo.closest('[data-acao="excluir-desafio"]')) {
-      confirmar("Desistir do desafio?", `"${d.titulo}" e os dias já marcados serão apagados.`, () => {
+      confirmar("Desistir do desafio?", `"${d.titulo}" vai para a lixeira, com os dias marcados.`, () => {
+        D.paraLixeira("desafio", [d], d.titulo);
         D.estado.desafios = D.estado.desafios.filter(x => x.id !== d.id); D.salvar();
+        avisarApagado(d.titulo);
       });
       return;
     }
@@ -1529,10 +2219,12 @@ function aoClicar(ev) {
       m.concluida = true; D.salvar(); desenharMetas(); festejarComSom(true, "META", "FEITA"); return;
     }
     if (alvo.closest('[data-acao="meta-excluir"]')) {
-      confirmar("Excluir a meta?", `"${m.titulo}" e suas etapas serão apagadas. As tarefas ligadas continuam.`, () => {
+      confirmar("Excluir a meta?", `"${m.titulo}" vai para a lixeira. As tarefas ligadas continuam.`, () => {
+        D.paraLixeira("meta", [m], m.titulo);
         D.estado.metas = D.estado.metas.filter(x => x.id !== m.id);
         D.estado.tarefas.forEach(t => { if (t.metaId === m.id) t.metaId = ""; });
         D.salvar();
+        avisarApagado(m.titulo);
       });
       return;
     }
@@ -1606,8 +2298,9 @@ function acaoTarefa(tipo, t) {
         if (aba === "detalhe") irPara(abaAnterior === "detalhe" ? "hoje" : abaAnterior); else desenhar();
       });
     } else {
-      confirmar("Excluir a tarefa?", `"${t.titulo}" será apagada.`, () => {
+      confirmar("Excluir a tarefa?", `"${t.titulo}" vai para a lixeira. Dá para trazer de volta depois.`, () => {
         D.excluirTarefa(t.id);
+        avisarApagado(t.titulo);
         if (aba === "detalhe") setTimeout(() => irPara(abaAnterior === "detalhe" ? "hoje" : abaAnterior), 10);
       });
     }
@@ -1622,20 +2315,26 @@ function iniciar() {
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!D.estado.tema) aplicarTema(); });
   montarNav();
   montarSecoes();
-  $$(".faixa").forEach(f => f.insertAdjacentHTML("beforeend", A.ondinha()));
+  D.limparLixeiraVelha();
+  marcarVisita();
+  $$(".faixa").forEach(f => {
+    f.insertAdjacentHTML("afterbegin", '<span class="faixa-fundo"></span>');
+    f.insertAdjacentHTML("beforeend", A.ondinha());
+  });
   ligarEventos();
   // na primeira vez, o tutorial abre sozinho
   trocarTela(D.estado.tutorialVisto ? "hoje" : "tutorial");
-  requestAnimationFrame(moverCorredor);
-  addEventListener("resize", moverCorredor);
+  requestAnimationFrame(() => { moverCorredor(); moverBolha(); });
+  addEventListener("resize", () => { moverCorredor(); moverBolha(); });
   S.retomarSeLigado();
+  ligarParallax();
   cuidarDaVersao();
 }
 
 /* ---------------------------------------- versão e atualização
    O app fica guardado no aparelho pra funcionar sem internet. Sem isso aqui,
    uma versão nova no servidor não chegaria até a tela. */
-const VERSAO_APP = "1.3.0";
+const VERSAO_APP = "1.4.0";
 
 function cuidarDaVersao() {
   const marca = $("#versao-app");

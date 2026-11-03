@@ -52,7 +52,9 @@ const VAZIO = {
   humores: {},             // "2026-11-02": { v, em, nota }
   assessments: [],         // resultados salvos
   selos: {},               // "primeiro-passo": "2026-11-03"
-  tutorialVisto: false
+  tutorialVisto: false,
+  lixeira: [],             // o que foi apagado, guardado por 30 dias
+  ultimoDia: ""            // último dia em que o app foi aberto
 };
 
 let estado = carregar();
@@ -174,9 +176,56 @@ function novaTarefa(dados) {
     categoriaId: dados.categoriaId || "", metaId: dados.metaId || "",
     prioridade: !!dados.prioridade, feita: false, feitaEm: null,
     repete: dados.repete || { tipo: "nenhuma" },
+    passos: Array.isArray(dados.passos) ? dados.passos : [],
     maeId: dados.maeId || null, criadaEm: new Date().toISOString()
   };
   estado.tarefas.push(t); salvar(); return t;
+}
+
+/* ---------------- colunas do quadro ----------------
+   A tarefa está em uma de três colunas, deduzidas do que ela já guarda. */
+const COLUNAS = [
+  { id: "afazer", nome: "A fazer", cor: "rosa" },
+  { id: "fazendo", nome: "Fazendo", cor: "manteiga" },
+  { id: "feito", nome: "Feito", cor: "menta" }
+];
+function colunaDe(t) { return t.feita ? "feito" : (t.andamento ? "fazendo" : "afazer"); }
+function moverParaColuna(tid, coluna) {
+  const t = acharTarefa(tid); if (!t) return null;
+  if (coluna === "feito") { t.feita = true; t.feitaEm = t.feitaEm || new Date().toISOString(); t.andamento = false; }
+  else if (coluna === "fazendo") { t.feita = false; t.feitaEm = null; t.andamento = true; }
+  else { t.feita = false; t.feitaEm = null; t.andamento = false; }
+  salvar(); return t;
+}
+
+/* ---------------- subtarefas ---------------- */
+function passos(t) { return Array.isArray(t && t.passos) ? t.passos : []; }
+function novoPasso(tid, titulo) {
+  const t = acharTarefa(tid); if (!t || !titulo.trim()) return null;
+  if (!Array.isArray(t.passos)) t.passos = [];
+  const p = { id: id(), titulo: titulo.trim().slice(0, 120), feito: false };
+  t.passos.push(p); salvar(); return p;
+}
+function alternarPasso(tid, pid) {
+  const t = acharTarefa(tid); if (!t) return null;
+  const p = passos(t).find(x => x.id === pid); if (!p) return null;
+  p.feito = !p.feito;
+  // com todos os passos feitos, a tarefa se dá por concluída
+  if (passos(t).length && passos(t).every(x => x.feito) && !t.feita) {
+    t.feita = true; t.feitaEm = new Date().toISOString();
+  } else if (t.feita && !p.feito) {
+    t.feita = false; t.feitaEm = null;
+  }
+  salvar(); return t;
+}
+function excluirPasso(tid, pid) {
+  const t = acharTarefa(tid); if (!t) return;
+  t.passos = passos(t).filter(x => x.id !== pid); salvar();
+}
+/** quantos passos já foram feitos */
+function progressoPassos(t) {
+  const ps = passos(t);
+  return { feitos: ps.filter(p => p.feito).length, total: ps.length };
 }
 function acharTarefa(tid) { return estado.tarefas.find(t => t.id === tid); }
 function atualizarTarefa(tid, mudancas) {
@@ -184,6 +233,8 @@ function atualizarTarefa(tid, mudancas) {
   Object.assign(t, mudancas); salvar(); return t;
 }
 function excluirTarefa(tid) {
+  const vao = estado.tarefas.filter(t => t.id === tid || t.maeId === tid);
+  if (vao.length) paraLixeira("tarefa", vao, vao[0].titulo);
   estado.tarefas = estado.tarefas.filter(t => t.id !== tid && t.maeId !== tid);
   salvar();
 }
@@ -275,10 +326,50 @@ function corSugerida() {
   return CORES.find(c => !usadas.includes(c)) || CORES[estado.categorias.length % CORES.length];
 }
 function excluirCategoria(cid) {
+  const c = estado.categorias.find(x => x.id === cid);
+  if (c) paraLixeira("categoria", [c], c.nome);
   estado.categorias = estado.categorias.filter(c => c.id !== cid);
   estado.tarefas.forEach(t => { if (t.categoriaId === cid) t.categoriaId = ""; });
   salvar();
 }
+
+/* ---------------- lixeira ----------------
+   Nada é apagado de vez na hora. Fica guardado por 30 dias. */
+const GUARDA_DIAS = 30;
+const LISTAS = { tarefa: "tarefas", habito: "habitos", meta: "metas", desafio: "desafios", categoria: "categorias" };
+
+function paraLixeira(tipo, itens, rotulo) {
+  if (!itens || !itens.length) return null;
+  const reg = {
+    id: id(), tipo, rotulo: (rotulo || "").slice(0, 120),
+    itens: structuredClone(itens), em: new Date().toISOString()
+  };
+  estado.lixeira.unshift(reg);
+  limparLixeiraVelha();
+  return reg;
+}
+function limparLixeiraVelha() {
+  const limite = Date.now() - GUARDA_DIAS * 86400000;
+  estado.lixeira = estado.lixeira.filter(r => new Date(r.em).getTime() > limite);
+}
+function restaurar(rid) {
+  const i = estado.lixeira.findIndex(r => r.id === rid);
+  if (i < 0) return null;
+  const reg = estado.lixeira[i];
+  const lista = LISTAS[reg.tipo];
+  if (!lista) return null;
+  reg.itens.forEach(item => {
+    if (!estado[lista].some(x => x.id === item.id)) estado[lista].push(item);
+  });
+  estado.lixeira.splice(i, 1);
+  salvar();
+  return reg;
+}
+function apagarDeVez(rid) {
+  estado.lixeira = estado.lixeira.filter(r => r.id !== rid);
+  salvar();
+}
+function esvaziarLixeira() { estado.lixeira = []; salvar(); }
 function categoria(cid) { return estado.categorias.find(c => c.id === cid); }
 
 /* ---------------- anotações, humor, reflexão ---------------- */
@@ -465,6 +556,9 @@ window.Dados = {
   salvar, hoje, iso, deISO, somaDias, inicioSemana, semanaDe, dataLonga, dataCurta,
   tarefasDoDia, pendentesAnteriores, materializar, novaTarefa, acharTarefa,
   atualizarTarefa, excluirTarefa, alternarFeita, prioridadesDoDia,
+  passos, novoPasso, alternarPasso, excluirPasso, progressoPassos,
+  COLUNAS, colunaDe, moverParaColuna,
+  paraLixeira, restaurar, apagarDeVez, esvaziarLixeira, limparLixeiraVelha,
   novoHabito, marcarHabito, sequencia, melhorSequencia, naSemana,
   novaMeta, progressoMeta,
   novoDesafio, desafiosAtivos, marcarDesafio,

@@ -50,6 +50,28 @@ Não sai do aparelho e não tem cópia em servidor. Se você limpar os dados do 
 | `js/app.js` | A interface e o comportamento |
 | `sw.js` | Guarda o app para funcionar sem internet |
 
+## Gestos e movimento
+
+Arrastar a tarefa para a direita conclui, para a esquerda adia um dia. O gesto tem
+resistência depois do limiar e vale também num movimento rápido e curto, pela inércia.
+Um movimento mais vertical que horizontal é entendido como rolagem e não vira arrasto.
+
+No quadro da Semana, arrastar o cartão muda a coluna; pelo teclado as setas fazem o mesmo.
+
+As animações seguem o guia de efeitos: mola, reorganização de layout (FLIP), transição de
+elemento compartilhado, entrada em sequência, entrada e saída coordenadas, animação por
+rolagem, vidro fosco, números animados, texto por letras, revelação por máscara, parallax,
+gradiente orgânico, textura de papel e SVG desenhando. Tudo em CSS e Web Animations, sem
+nenhuma biblioteca. Shaders, 3D e partículas ficaram de fora de propósito: quebrariam o
+funcionamento offline e pesariam no celular.
+
+Tudo respeita `prefers-reduced-motion`.
+
+## Lixeira
+
+O que é apagado vai para `estado.lixeira` e fica trinta dias antes de sumir sozinho.
+Cada exclusão mostra um aviso com Desfazer. A tela fica em Ajustes.
+
 ## As dez áreas
 
 Espiritualidade, saúde física, saúde mental, desenvolvimento profissional, bem-estar,

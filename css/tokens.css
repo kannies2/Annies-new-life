@@ -67,6 +67,11 @@
   --sombra-card: 0 2px 12px rgba(44, 44, 52, .06);
   --sombra-flutuante: 0 8px 24px rgba(44, 44, 52, .10);
 
+  /* grão de papel, desenhado em SVG dentro da própria folha de estilo */
+  --grao: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='.32'/%3E%3C/svg%3E");
+  --grao-forca: .5;
+  --grao-mistura: multiply;
+
   /* ---- movimento ---- */
   --t-micro-dur: 150ms;
   --t-entrada: 220ms;

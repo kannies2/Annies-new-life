@@ -2,6 +2,24 @@
 
 * { box-sizing: border-box; }
 
+/* Textura de papel: ruído gerado em SVG, sem imagem e sem peso.
+   Fica por cima de tudo, sem capturar toque. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  opacity: var(--grao-forca, .5); mix-blend-mode: var(--grao-mistura, multiply);
+  background-image: var(--grao);
+  background-size: 180px 180px;
+}
+[data-tema="escuro"] { --grao-forca: .34; --grao-mistura: screen; }
+@media (prefers-reduced-motion: no-preference) {
+  body::before { animation: grao-vive 8s steps(1) infinite; }
+}
+@keyframes grao-vive {
+  0% { background-position: 0 0; } 25% { background-position: -40px 30px; }
+  50% { background-position: 25px -45px; } 75% { background-position: -30px -20px; }
+  100% { background-position: 0 0; }
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -49,13 +67,48 @@ button { cursor: pointer; }
 
 /* ---------------- faixa de seção ---------------- */
 .faixa {
-  position: relative; margin: 0 calc(var(--space-4) * -1) var(--space-6);
+  position: relative;
+  margin: 0 calc(var(--space-4) * -1) var(--space-6);
   padding: var(--space-5) var(--space-5) var(--space-6);
   background: var(--faixa-cor, var(--aba-hoje-claro));
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
+/* o fundo recorta o gradiente sem cortar a ondinha, que fica pra fora */
+.faixa-fundo {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden;
+  border-radius: inherit; pointer-events: none;
+}
+/* gradiente orgânico: três manchas de cor que passeiam devagar */
+.faixa-fundo::before {
+  content: ""; position: absolute; inset: -40%; pointer-events: none;
+  background:
+    radial-gradient(38% 46% at 22% 30%, var(--mancha-a, var(--rosa)) 0%, transparent 62%),
+    radial-gradient(34% 42% at 76% 24%, var(--mancha-b, var(--lilas)) 0%, transparent 60%),
+    radial-gradient(42% 50% at 55% 86%, var(--mancha-c, var(--manteiga)) 0%, transparent 64%);
+  opacity: .5; filter: blur(14px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .faixa-fundo::before { animation: manchas 26s ease-in-out infinite alternate; }
+}
+@keyframes manchas {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(3%, -4%) scale(1.08) rotate(3deg); }
+  66%  { transform: translate(-4%, 3%) scale(1.04) rotate(-2deg); }
+  100% { transform: translate(2%, 2%) scale(1.1) rotate(1deg); }
+}
+.faixa > *:not(.faixa-fundo):not(.ondinha) { position: relative; z-index: 1; }
+.faixa .ondinha { z-index: 2; }
 .faixa .ondinha { position: absolute; left: 0; right: 0; width: 100%; bottom: -21px; height: 22px; display: block; }
 .faixa .ondinha path { fill: var(--faixa-cor, var(--aba-hoje-claro)); }
+#tela-hoje     .faixa { --mancha-a: var(--rosa);       --mancha-b: var(--lilas);   --mancha-c: var(--manteiga); }
+#tela-semana   .faixa { --mancha-a: var(--periwinkle); --mancha-b: var(--menta);   --mancha-c: var(--lilas); }
+#tela-mes      .faixa { --mancha-a: var(--lilas);      --mancha-b: var(--rosa);    --mancha-c: var(--periwinkle); }
+#tela-desafios .faixa { --mancha-a: var(--lilas);      --mancha-b: var(--pessego); --mancha-c: var(--menta); }
+#tela-metas    .faixa { --mancha-a: var(--manteiga);   --mancha-b: var(--pessego); --mancha-c: var(--rosa); }
+#tela-revisao  .faixa { --mancha-a: var(--menta);      --mancha-b: var(--periwinkle); --mancha-c: var(--manteiga); }
+#tela-trofeus  .faixa { --mancha-a: var(--manteiga);   --mancha-b: var(--rosa);    --mancha-c: var(--pessego); }
+#tela-tutorial .faixa { --mancha-a: var(--menta);      --mancha-b: var(--lilas);   --mancha-c: var(--rosa); }
+
 .faixa-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .faixa .saudacao { margin: var(--space-1) 0 0; color: var(--tinta); }
 .faixa .titulo-g { margin: var(--space-1) 0 0; }
@@ -568,6 +621,204 @@ dialog.saindo { animation: modal-sai 160ms ease-in forwards; }
   border-radius: var(--radius-pill); border: 1.5px solid var(--uva); display: block;
 }
 
+/* ======================= v1.4: movimento ======================= */
+
+/* texto escrito letra por letra, sem quebrar palavra */
+.palavra { display: inline-block; white-space: nowrap; }
+.letra {
+  display: inline-block;
+  animation: letra-entra 420ms cubic-bezier(.34, 1.3, .64, 1) both;
+}
+@keyframes letra-entra {
+  from { opacity: 0; transform: translateY(.22em) rotate(-6deg) scale(.86); }
+  to { opacity: 1; transform: none; }
+}
+
+/* barra de leitura no topo, ligada à rolagem */
+#barra-leitura {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 50;
+  background: linear-gradient(90deg, var(--aba-atual-cor, var(--rosa)), var(--acao));
+  transform: scaleX(0); transform-origin: 0 50%;
+  pointer-events: none; opacity: .85;
+}
+
+/* parallax */
+.faixa-deco, .faixa-fundo { will-change: transform; }
+
+/* arrastar a tarefa */
+.tarefa { position: relative; overflow: hidden; touch-action: pan-y; }
+.tarefa.arrastando { cursor: grabbing; user-select: none; box-shadow: var(--sombra-flutuante); z-index: 2; }
+.pista {
+  position: absolute; inset: 0; z-index: 0; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 var(--space-4);
+  border-radius: inherit; pointer-events: none;
+  opacity: var(--pista-forca, 0);
+}
+.pista i {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-style: normal; font-weight: 700; font-size: var(--t-apoio);
+  transform: scale(calc(.82 + var(--pista-forca, 0) * .18));
+}
+.pista-esq { color: var(--atencao); }
+.pista-dir { color: var(--oliva-escuro); }
+.tarefa > *:not(.pista) { position: relative; z-index: 1; }
+.tarefa.vai-concluir { background: var(--menta-claro); border-color: var(--oliva); }
+.tarefa.vai-adiar { background: var(--manteiga-claro); border-color: var(--atencao); }
+
+/* alternador lista e quadro */
+.troca-vista {
+  position: relative; display: inline-flex; gap: 2px; padding: 4px;
+  background: var(--creme-200); border: 2px solid var(--borda);
+  border-radius: var(--radius-pill); margin-bottom: var(--space-3);
+}
+.troca-vista button {
+  position: relative; z-index: 1; border: none; background: transparent;
+  border-radius: var(--radius-pill); padding: 8px 20px; min-height: 40px;
+  font-weight: 700; font-size: var(--t-apoio); color: var(--tinta-suave);
+  transition: color var(--t-micro-dur) ease-out;
+}
+.troca-vista button[aria-selected="true"] { color: var(--tinta); }
+.troca-bolha {
+  position: absolute; left: 4px; top: 4px; bottom: 4px; z-index: 0;
+  background: var(--superficie); border-radius: var(--radius-pill);
+  box-shadow: var(--sombra-card);
+  transition: transform var(--t-continua) var(--spring), width var(--t-continua) var(--spring);
+}
+#semana-dica { margin-bottom: var(--space-4); }
+
+/* quadro */
+.quadro { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); align-items: start; }
+.coluna {
+  background: color-mix(in srgb, var(--col-claro) 58%, var(--superficie));
+  border: 2px solid color-mix(in srgb, var(--col) 34%, transparent);
+  border-radius: var(--radius-lg); padding: var(--space-3); min-width: 0;
+}
+.coluna-topo h3 { color: var(--tinta); }
+.coluna-topo { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+.coluna-topo h3 { flex: 1; min-width: 0; font-size: var(--t-titulo-m); }
+.coluna-ponto {
+  width: 12px; height: 12px; border-radius: var(--radius-pill); flex: none;
+  background: var(--col); border: 2px solid var(--uva);
+}
+.coluna-corpo {
+  display: flex; flex-direction: column; gap: var(--space-2); min-height: 92px;
+  border-radius: var(--radius-md); transition: background var(--t-micro-dur) ease-out, box-shadow var(--t-micro-dur) ease-out;
+}
+.coluna-corpo.recebendo {
+  background: var(--col-claro);
+  box-shadow: inset 0 0 0 3px var(--col);
+}
+.coluna-vazia {
+  margin: 0; padding: var(--space-4) var(--space-2); text-align: center;
+  font-size: var(--t-apoio); color: var(--tinta-rotulo);
+  border: 2px dashed var(--borda); border-radius: var(--radius-md);
+}
+
+.cartao {
+  position: relative; background: var(--superficie); border: 2px solid var(--borda);
+  border-radius: var(--radius-md); box-shadow: var(--sombra-card);
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+  cursor: grab; touch-action: pan-y;
+  transition: transform var(--t-micro-dur) var(--spring), box-shadow var(--t-micro-dur) ease-out;
+}
+.cartao:hover { transform: translateY(-2px); box-shadow: var(--sombra-flutuante); }
+.cartao.prioridade { border-color: var(--rosa); }
+.cartao.atrasada { border-color: var(--alerta); }
+.cartao-pega {
+  position: absolute; left: 6px; top: 12px; bottom: 12px; width: 4px;
+  border-radius: var(--radius-pill); background: var(--col); opacity: .7;
+}
+.cartao-titulo { font-weight: 600; font-size: var(--t-apoio); margin: 0; word-break: break-word; }
+.cartao-pe { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: var(--space-2); }
+.cartao-dia, .cartao-hora, .cartao-passos {
+  font-size: var(--t-micro); font-weight: 700; color: var(--tinta-rotulo);
+}
+.cartao-passos { background: var(--periwinkle-claro); color: var(--tinta); border-radius: var(--radius-pill); padding: 1px 7px; }
+.cartao-cat { width: 10px; height: 10px; border-radius: var(--radius-pill); margin-left: auto; flex: none; }
+.cartao.cartao-origem { opacity: .3; }
+.cartao-voando {
+  position: fixed; left: 0; top: 0; z-index: 70; pointer-events: none;
+  box-shadow: var(--sombra-flutuante); cursor: grabbing;
+  border-color: var(--uva);
+}
+
+/* subtarefas */
+.etq-passos {
+  background: var(--periwinkle-claro); color: var(--tinta);
+  font-size: var(--t-micro); font-weight: 700; letter-spacing: 0; text-transform: none;
+  padding: 3px 10px; gap: 7px;
+}
+.etq-passos.cheia { background: var(--menta-claro); color: var(--oliva-escuro); }
+.passos-barra {
+  width: 30px; height: 5px; border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--uva) 22%, transparent); overflow: hidden; display: block;
+}
+.passos-barra i { display: block; height: 100%; background: var(--uva); border-radius: var(--radius-pill);
+  transition: width var(--t-progresso) ease-out; }
+.etq-passos.cheia .passos-barra i { background: var(--oliva); }
+
+.passos-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.passos { list-style: none; padding: 0; margin: var(--space-3) 0 0; display: flex; flex-direction: column; gap: 2px; }
+.passo {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) 0; border-radius: var(--radius-sm);
+  transition: background var(--t-micro-dur) ease-out;
+}
+.passo:hover { background: var(--creme-200); }
+.passo .caixa { width: 22px; height: 22px; margin: 0; }
+.passo-titulo { flex: 1; min-width: 0; word-break: break-word; }
+.passo.feito .passo-titulo { color: var(--oliva-escuro); text-decoration: line-through; text-decoration-thickness: 1px; }
+.passo-excluir {
+  flex: none; background: transparent; border: none; color: var(--tinta-rotulo);
+  width: 30px; height: 30px; border-radius: var(--radius-pill); display: grid; place-items: center;
+  opacity: 0; transition: opacity var(--t-micro-dur) ease-out;
+}
+.passo:hover .passo-excluir, .passo:focus-within .passo-excluir { opacity: 1; }
+@media (hover: none) { .passo-excluir { opacity: .6; } }
+
+.passo-novo { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+.passo-novo input {
+  flex: 1; min-width: 0; padding: 10px var(--space-3); min-height: 44px;
+  border: 2px dashed var(--borda); border-radius: var(--radius-md);
+  background: transparent; color: var(--tinta);
+}
+.passo-novo input:focus { border-style: solid; border-color: var(--acao); background: var(--creme-100); }
+.passo-novo .btn { flex: none; width: 44px; padding: 0; justify-content: center; }
+
+/* recado da Agnes */
+.recado {
+  position: relative; display: flex; align-items: center; gap: var(--space-3);
+  margin-bottom: var(--space-5); padding-right: 48px;
+  background: linear-gradient(135deg, var(--manteiga-claro), var(--rosa-claro));
+  border-color: var(--uva);
+}
+.recado-agnes { flex: none; display: grid; place-items: center; }
+.recado-agnes svg { animation: bobinho 4.5s ease-in-out infinite; transform-origin: 50% 90%; }
+.recado-texto { flex: 1; min-width: 0; margin: 0; font-weight: 600; font-size: var(--t-apoio); }
+.recado-fechar {
+  position: absolute; top: 8px; right: 8px; width: 30px; height: 30px;
+  border: none; background: transparent; color: var(--tinta-rotulo);
+  border-radius: var(--radius-pill); display: grid; place-items: center;
+}
+.recado-fechar:hover { background: color-mix(in srgb, var(--superficie) 70%, transparent); color: var(--tinta); }
+
+/* lixeira */
+.lixo { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.lixo-corpo { flex: 1; min-width: 160px; }
+.lixo-titulo { font-weight: 700; margin: 2px 0; word-break: break-word; }
+.lixo-acoes { display: flex; gap: var(--space-2); align-items: center; flex: none; }
+.lixo .micro { color: var(--framboesa); }
+
+/* botão de desfazer no avisinho */
+.aviso-flutuante { display: flex; align-items: center; gap: var(--space-3); }
+.aviso-texto { flex: 1; min-width: 0; }
+.aviso-botao {
+  flex: none; background: var(--creme-100); color: var(--uva);
+  border: none; border-radius: var(--radius-pill);
+  padding: 7px 16px; font-weight: 700; font-size: var(--t-apoio);
+}
+.aviso-botao:hover { background: #fff; }
+
 /* ======================= v1.3: áreas, biblioteca, troféus ======================= */
 
 /* cartão do dia na faixa */
@@ -830,6 +1081,16 @@ dialog.saindo { animation: modal-sai 160ms ease-in forwards; }
   .tutorial-passo { padding-left: var(--space-4); }
   .tutorial-n { left: -8px; width: 26px; height: 26px; font-size: 13px; }
   .area-filtros { margin: 0 calc(var(--space-3) * -1); padding-left: var(--space-3); padding-right: var(--space-3); }
+
+  /* quadro: colunas lado a lado, deslizando */
+  .quadro {
+    grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 78%;
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    margin: 0 calc(var(--space-3) * -1); padding: 0 var(--space-3) var(--space-2);
+    gap: var(--space-2);
+  }
+  .coluna { scroll-snap-align: center; }
+  .troca-vista button { padding: 8px 18px; }
   .dia-cartao { gap: var(--space-2); }
   .ajuste { padding: var(--space-2) 0; }
 }
