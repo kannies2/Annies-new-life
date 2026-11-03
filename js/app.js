@@ -2,7 +2,7 @@
 (function () {
 "use strict";
 
-const D = window.Dados, A = window.Arte, AS = window.Assessments;
+const D = window.Dados, A = window.Arte, AS = window.Assessments, B = window.Biblioteca;
 const S = window.Som || { tocar(){}, alternar(){}, ligado(){ return false; }, retomarSeLigado(){} };
 const $ = (s, raiz = document) => raiz.querySelector(s);
 const $$ = (s, raiz = document) => [...raiz.querySelectorAll(s)];
@@ -12,13 +12,38 @@ const semMovimento = () => matchMedia("(prefers-reduced-motion: reduce)").matche
 
 const ABAS = [
   { id: "hoje", nome: "Hoje" }, { id: "semana", nome: "Semana" },
-  { id: "mes", nome: "Mês" }, { id: "metas", nome: "Metas" },
-  { id: "revisao", nome: "Revisão" }
+  { id: "mes", nome: "Mês" }, { id: "desafios", nome: "Desafios" },
+  { id: "metas", nome: "Metas" }, { id: "revisao", nome: "Revisão" }
 ];
+
+/* ícone e cor de cada faixa de seção */
+const SECAO_ICONES = {
+  habitos: () => A.mini("repete", 24), desafios: () => A.navIcone("desafios"),
+  tarefas: () => A.mini("lista", 24), feitas: () => A.mini("ok2", 24),
+  pendentes: () => A.mini("mover", 24), humor: () => A.carinha("bem", 26, "var(--manteiga)"),
+  metas: () => A.navIcone("metas"), assessments: () => A.navIcone("revisao"),
+  biblioteca: () => A.mini("biblioteca", 24), trofeus: () => A.mini("trofeu", 24),
+  bloqueado: () => A.mini("cadeado", 24),
+  reflexao: () => A.mini("editar", 24), calendario: () => A.navIcone("mes")
+};
+function montarSecoes(raiz = document) {
+  $$(".secao[data-icone]", raiz).forEach(s => {
+    if (s.dataset.montada) return;
+    s.dataset.montada = "1";
+    const cor = s.dataset.cor || "rosa";
+    s.style.setProperty("--secao-cor", `var(--${cor})`);
+    s.insertAdjacentHTML("afterbegin", A.tarja(`var(--${cor}-claro)`));
+    const fabrica = SECAO_ICONES[s.dataset.icone];
+    if (fabrica) s.insertAdjacentHTML("beforeend", `<span class="secao-icone">${fabrica()}</span>`);
+    const icone = $(".secao-icone", s);
+    if (icone) s.insertBefore(icone, $(".secao-titulo", s));
+  });
+}
 const MES_CURTO = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
 let aba = "hoje", abaAnterior = "hoje";
-const ORDEM = ["hoje", "semana", "mes", "metas", "revisao"];
+const ORDEM = ["hoje", "semana", "mes", "desafios", "metas", "revisao"];
+let areaDesafios = "", areaMetas = "";
 let diaHoje = D.hoje(), diaSemana = D.hoje(), diaMes = D.hoje(), diaMesSel = D.hoje(), diaRevisao = D.hoje();
 let editandoTarefa = null, tarefaDetalhe = null, metaDaEtapa = null, tarefaReagendar = null;
 let filtroBusca = { status: "", categoriaId: "" };
@@ -269,16 +294,26 @@ function desenharHoje() {
   const pendentes = tarefas.filter(t => !t.feita);
   const feitas = tarefas.filter(t => t.feita);
 
-  $("#hoje-data").textContent = D.dataLonga(diaHoje);
+  const obj = D.deISO(diaHoje);
+  const ehHoje = diaHoje === D.hoje();
+  const ontem = diaHoje === D.somaDias(D.hoje(), -1);
+  const amanha = diaHoje === D.somaDias(D.hoje(), 1);
+  $("#hoje-etiqueta").outerHTML = A.etiquetaDia(String(obj.getDate()).padStart(2, "0"), MES_CURTO[obj.getMonth()])
+    .replace('class="etiqueta-dia"', 'class="etiqueta-dia" id="hoje-etiqueta"');
+  $("#hoje-semana").textContent = D.DIAS[obj.getDay()];
+  $("#hoje-data").textContent = ehHoje ? "hoje" : ontem ? "ontem" : amanha ? "amanhã"
+    : `${obj.getDate()} de ${D.MESES[obj.getMonth()]} de ${obj.getFullYear()}`;
+
   const sauda = $("#t-hoje");
   const nome = D.nome();
-  sauda.textContent = diaHoje === D.hoje() ? (nome ? `Oi, ${nome}` : "Oi") : "Esse dia";
+  sauda.textContent = ehHoje ? (nome ? `Oi, ${nome}` : "Oi") : (nome || "Esse dia");
   sauda.classList.remove("anima");
   void sauda.offsetWidth;
   if (!semMovimento()) sauda.classList.add("anima");
   $("#hoje-progresso").textContent = tarefas.length
     ? `${feitas.length} de ${tarefas.length} tarefas concluídas`
     : "Nenhuma tarefa ainda";
+  $("#tarefas-conta").textContent = pendentes.length ? `${pendentes.length} pendente${pendentes.length === 1 ? "" : "s"}` : "";
   $("#hoje-deco").innerHTML = A.agnes(tarefas.length && feitas.length === tarefas.length ? "acolhedora" : "feliz", 64);
 
   $("#lista-tarefas").innerHTML = pendentes.length
@@ -328,6 +363,7 @@ function desenharHabitos() {
 function desenharDesafiosHoje() {
   const ds = D.desafiosAtivos();
   $("#bloco-desafios-hoje").classList.toggle("oculto", !ds.length);
+  $("#desafios-hoje-conta").textContent = ds.length ? `${ds.length} ativo${ds.length === 1 ? "" : "s"}` : "";
   $("#lista-desafios-hoje").innerHTML = ds.map(d => {
     const marcado = d.marcas.includes(diaHoje);
     const area = D.AREAS.find(a => a.id === d.area);
@@ -352,9 +388,24 @@ const HUMORES = [
 ];
 const humorPor = (id) => HUMORES.find(h => h.id === id);
 
+/* quando a pessoa já respondeu, o card vira uma tira fininha */
+let humorAberto = false;
+
 function desenharHumor() {
   const reg = D.humorRegistro(diaHoje);
   const atual = reg ? reg.v : "";
+  const encolhido = !!atual && !humorAberto;
+
+  $("#humor-tira").classList.toggle("oculto", !encolhido);
+  $("#card-humor").classList.toggle("oculto", encolhido);
+  if (atual) {
+    const h = humorPor(atual);
+    $("#humor-tira-carinha").innerHTML = A.carinha(atual, 36, `var(--${h ? h.cor : "menta"})`);
+    $("#humor-tira-titulo").textContent = `Dia marcado como ${h ? h.rotulo : atual}`;
+    const nota = D.humorNota(diaHoje), anot = D.anotacao(diaHoje);
+    $("#humor-tira-sub").textContent = nota || (anot ? "com anotações" : (reg.em ? `às ${reg.em}` : "guardado"));
+  }
+
   $("#humor-linha").innerHTML = HUMORES.map(h =>
     `<button class="humor-chip" data-humor="${h.id}" aria-pressed="${atual === h.id}"
       style="--chip:var(--${h.cor});--chip-claro:var(--${h.cor}-claro)">
@@ -374,6 +425,32 @@ function desenharHumor() {
 
   $("#humor-nota-campo").classList.toggle("oculto", !atual);
   $("#humor-nota").value = D.humorNota(diaHoje);
+}
+
+/** depois de responder, o card se recolhe sozinho */
+let relogioEncolher = null;
+function encolherHumorDepois(ms = 1800) {
+  clearTimeout(relogioEncolher);
+  relogioEncolher = setTimeout(() => {
+    if (!D.humor(diaHoje)) return;
+    humorAberto = false;
+    desenharHumor();
+    const tira = $("#humor-tira");
+    if (tira && !semMovimento()) {
+      tira.animate([{ transform: "scaleY(.7)", opacity: 0 }, { transform: "none", opacity: 1 }],
+        { duration: 260, easing: "cubic-bezier(.34,1.3,.64,1)" });
+    }
+  }, ms);
+}
+function abrirHumor() {
+  clearTimeout(relogioEncolher);
+  humorAberto = true;
+  desenharHumor();
+  const card = $("#card-humor");
+  if (card && !semMovimento()) {
+    card.animate([{ transform: "scaleY(.9)", opacity: 0 }, { transform: "none", opacity: 1 }],
+      { duration: 240, easing: "cubic-bezier(.34,1.3,.64,1)" });
+  }
 }
 
 function rolarAte(seletor) {
@@ -453,43 +530,98 @@ function desenharMes() {
   observarEntradas();
 }
 
-/* ---------------------------------------- METAS */
-function desenharMetas() {
+/* ---------------------------------------- DESAFIOS */
+function cardDesafio(d) {
+  const area = D.area(d.area);
+  const dias = Array.from({ length: d.dias }, (_, i) => D.somaDias(d.inicio, i));
+  const marcados = dias.map(x => d.marcas.includes(x));
+  const idxHoje = dias.indexOf(D.hoje());
+  return `<div class="card desafio reveal area-${d.area}" data-desafio="${d.id}">
+    <div class="card-acoes"><button data-acao="excluir-desafio" aria-label="Excluir desafio">${A.mini("excluir", 16)}</button></div>
+    ${A.areaIcone(d.area, 44)}
+    <div class="habito-corpo">
+      <h3>${esc(d.titulo)}</h3>
+      <p class="apoio">${d.marcas.length} de ${d.dias} dias · ${esc(area ? area.nome : "")}${d.concluido ? " · concluído" : ""}</p>
+      ${A.corrente(marcados, Math.min(d.dias, 14), idxHoje)}
+    </div>
+    ${d.concluido ? A.selo(String(d.dias), "DIAS", "var(--oliva)", 58)
+      : `<button class="caixa" role="checkbox" aria-checked="${d.marcas.includes(D.hoje())}"
+           data-acao="marcar-desafio" aria-label="Marcar hoje"></button>`}
+  </div>`;
+}
+
+/** botões das dez áreas, para filtrar a biblioteca */
+function filtrosDeArea(atual, marca) {
+  return `<button class="area-chip ${atual ? "" : "ativo"}" data-${marca}="">Todas</button>` +
+    D.AREAS.map(a => `<button class="area-chip ${atual === a.id ? "ativo" : ""}" data-${marca}="${a.id}"
+      style="--chip:var(--${a.cor});--chip-claro:var(--${a.cor}-claro)">
+      ${A.areaIcone(a.id, 22)}<span>${esc(a.nome)}</span></button>`).join("");
+}
+
+function cartaoSugestao(area, tipo, i, item) {
+  const a = D.area(area);
+  const jaTem = tipo === "desafio"
+    ? D.estado.desafios.some(d => d.titulo === item.titulo && !d.concluido)
+    : D.estado.metas.some(m => m.titulo === item.titulo && !m.concluida);
+  return `<div class="card sugestao reveal" style="--sg:var(--${a.cor});--sg-claro:var(--${a.cor}-claro)">
+    <div class="sugestao-topo">
+      <span class="sugestao-icone">${A.areaIcone(area, 40)}</span>
+      <span class="etq etq-cat" style="background:var(--${a.cor}-claro)">
+        <i class="ponto" style="background:var(--${a.cor})"></i>${esc(a.nome)}</span>
+    </div>
+    <h3 class="sugestao-titulo">${esc(item.titulo)}</h3>
+    <p class="apoio">${tipo === "desafio"
+      ? `${item.dias} dias, marcando todo dia`
+      : `${item.etapas.length} etapas`}</p>
+    ${tipo === "meta" ? `<ul class="sugestao-etapas">${item.etapas.slice(0, 3).map(e =>
+        `<li>${esc(e)}</li>`).join("")}${item.etapas.length > 3 ? `<li class="mais-etapas">e mais ${item.etapas.length - 3}</li>` : ""}</ul>` : ""}
+    <button class="btn ${jaTem ? "btn-discreto" : "btn-principal"}" ${jaTem ? "disabled" : ""}
+      data-sugestao="${tipo}" data-area="${area}" data-i="${i}">
+      ${jaTem ? "Já está na sua lista" : (tipo === "desafio" ? "Começar desafio" : "Virar meta")}</button>
+  </div>`;
+}
+
+function desenharDesafios() {
   const ativos = D.desafiosAtivos();
-  const emAndamento = D.estado.metas.filter(m => !m.concluida);
-  $("#metas-apoio").textContent =
-    `${emAndamento.length} meta${emAndamento.length === 1 ? "" : "s"} em andamento · ${ativos.length} desafio${ativos.length === 1 ? "" : "s"} ativo${ativos.length === 1 ? "" : "s"}`;
+  const feitos = D.estado.desafios.filter(d => d.concluido);
+  $("#desafios-apoio").textContent =
+    `${ativos.length} ativo${ativos.length === 1 ? "" : "s"} · ${feitos.length} concluído${feitos.length === 1 ? "" : "s"}`;
   $("#desafios-aviso").textContent = ativos.length >= 2
-    ? "Dois desafios ativos é o limite. Termine um antes de começar outro."
+    ? "Dois ativos é o limite. Termine um antes de começar outro."
     : "No máximo dois ao mesmo tempo, para não virar lista de cobrança.";
   $("#btn-novo-desafio").disabled = ativos.length >= 2;
 
-  const todos = D.estado.desafios;
-  $("#lista-desafios").innerHTML = todos.length ? todos.map(d => {
-    const area = D.AREAS.find(a => a.id === d.area);
-    const dias = Array.from({ length: d.dias }, (_, i) => D.somaDias(d.inicio, i));
-    const marcados = dias.map(x => d.marcas.includes(x));
-    const idxHoje = dias.indexOf(D.hoje());
-    return `<div class="card desafio reveal area-${d.area}" data-desafio="${d.id}">
-      <div class="card-acoes"><button data-acao="excluir-desafio" aria-label="Excluir desafio">${A.mini("excluir", 16)}</button></div>
-      ${A.areaIcone(d.area, 44)}
-      <div class="habito-corpo">
-        <h3>${esc(d.titulo)}</h3>
-        <p class="apoio">${d.marcas.length} de ${d.dias} dias · ${esc(area ? area.nome : "")}${d.concluido ? " · concluído" : ""}</p>
-        ${A.corrente(marcados, Math.min(d.dias, 14), idxHoje)}
-      </div>
-      ${d.concluido ? A.selo(String(d.dias), "DIAS", "var(--oliva)", 62)
-        : `<button class="caixa" role="checkbox" aria-checked="${d.marcas.includes(D.hoje())}"
-             data-acao="marcar-desafio" aria-label="Marcar hoje"></button>`}
-    </div>`;
-  }).join("") : vazio("feliz", "Nenhum desafio ainda",
-      "Um desafio é um compromisso curto, com data para acabar.", "Criar o primeiro", "desafio");
+  $("#lista-desafios-ativos").innerHTML = ativos.length ? ativos.map(cardDesafio).join("")
+    : vazio("feliz", "Nenhum desafio rolando", "Escolha um da biblioteca aqui embaixo.", "", "");
 
+  $("#desafios-areas").innerHTML = filtrosDeArea(areaDesafios, "area-desafio");
+  const areas = areaDesafios ? [areaDesafios] : D.AREAS.map(a => a.id);
+  $("#desafios-sugeridos").innerHTML = areas.flatMap(aid =>
+    B.desafiosDe(aid).map((item, i) => cartaoSugestao(aid, "desafio", i, item))).join("");
+
+  $("#bloco-desafios-feitos").classList.toggle("oculto", !feitos.length);
+  $("#desafios-feitos-conta").textContent = feitos.length ? `${feitos.length}` : "";
+  $("#lista-desafios-feitos").innerHTML = feitos.map(cardDesafio).join("");
+
+  observarEntradas(); animarProgresso();
+}
+
+/* ---------------------------------------- METAS */
+function desenharMetas() {
+  const emAndamento = D.estado.metas.filter(m => !m.concluida);
   const concluidas = D.estado.metas.filter(m => m.concluida);
+  $("#metas-apoio").textContent =
+    `${emAndamento.length} em andamento · ${concluidas.length} concluída${concluidas.length === 1 ? "" : "s"}`;
+
   $("#lista-metas").innerHTML = emAndamento.length ? emAndamento.map(cardMeta).join("")
     : vazio("curiosa", "Nenhuma meta em andamento", "O que você quer alcançar neste mês?", "Criar uma meta", "meta");
   $("#bloco-metas-feitas").classList.toggle("oculto", !concluidas.length);
   $("#lista-metas-feitas").innerHTML = concluidas.map(cardMeta).join("");
+
+  $("#metas-areas").innerHTML = filtrosDeArea(areaMetas, "area-meta");
+  const areas = areaMetas ? [areaMetas] : D.AREAS.map(a => a.id);
+  $("#metas-sugeridas").innerHTML = areas.flatMap(aid =>
+    B.metasDe(aid).map((item, i) => cartaoSugestao(aid, "meta", i, item))).join("");
 
   desenharAssessments();
   observarEntradas(); animarProgresso();
@@ -577,6 +709,7 @@ function desenharRevisao() {
 
   desenharPainelHumor(r);
   $("#reflexao").value = D.reflexao(r.semana);
+  $("#reflexao-estado").textContent = D.reflexao(r.semana).trim() ? "guardada" : "";
   observarEntradas(); animarProgresso();
 }
 
@@ -633,6 +766,82 @@ function desenharPainelHumor(r) {
         return `<li><i style="background:var(--${h ? h.cor : "menta"})"></i>
           <span><b>${D.dataCurta(d.data)}</b> ${esc(d.nota)}</span></li>`;
       }).join("")}</ul>` : ""}`;
+}
+
+/* ---------------------------------------- TROFÉUS */
+function desenharTrofeus() {
+  const ganhos = D.selosGanhos();
+  const faltam = D.SELOS.filter(s => !D.estado.selos[s.id]);
+  $("#trofeus-apoio").textContent = ganhos.length
+    ? `${ganhos.length} de ${D.SELOS.length} conquistados`
+    : "Nenhum ainda. Eles aparecem sozinhos conforme você usa o app.";
+  $("#trofeus-conta").textContent = ganhos.length ? `${ganhos.length}` : "";
+  $("#bloco-trofeus-ganhos").classList.toggle("oculto", !ganhos.length);
+
+  $("#lista-trofeus").innerHTML = ganhos.map(s => `
+    <div class="trofeu-card reveal ganho">
+      ${A.trofeu(s, 76, true)}
+      <b>${esc(s.nome)}</b>
+      <span class="apoio">${esc(s.comoGanha)}</span>
+      <span class="micro">${D.dataCurta(D.estado.selos[s.id])}</span>
+    </div>`).join("");
+
+  $("#lista-trofeus-faltam").innerHTML = faltam.length ? faltam.map(s => `
+    <div class="trofeu-card reveal">
+      ${A.trofeu(s, 76, false)}
+      <b>${esc(s.nome)}</b>
+      <span class="apoio">${esc(s.comoGanha)}</span>
+    </div>`).join("")
+    : `<p class="apoio">Você conquistou todos. Sério.</p>`;
+
+  observarEntradas();
+}
+
+/* ---------------------------------------- TUTORIAL */
+const TUTORIAL = [
+  { icone: "hoje", cor: "rosa", titulo: "A tela Hoje é a sua base",
+    texto: "Tudo que importa no dia mora aqui: as tarefas, os hábitos, os desafios ativos e o seu humor. As setas no topo levam pro dia anterior e pro seguinte, e o botão Hoje traz você de volta." },
+  { icone: "tarefas", cor: "rosa", titulo: "Tarefa é coisa de fazer e riscar",
+    texto: "Toque em Adicionar tarefa. Em Mais detalhes você escolhe data, horário, categoria, meta ligada e repetição. No celular, toque na tarefa para abrir o detalhe, onde ficam editar, reagendar e excluir." },
+  { icone: "habitos", cor: "menta", titulo: "Hábito é coisa de repetir",
+    texto: "Hábito não tem prazo, tem constância. O diário conta dias seguidos; o semanal conta quantas vezes na semana. A correntinha mostra sua sequência, e a estrela marca o dia de hoje." },
+  { icone: "desafios", cor: "lilas", titulo: "Desafio é curto, meta é longa",
+    texto: "Desafio tem começo e fim e você marca todo dia, como ler a Bíblia por sete dias. Meta tem prazo e etapas, como concluir a leitura de um livro. Dois desafios ativos por vez é o limite, de propósito." },
+  { icone: "biblioteca", cor: "pessego", titulo: "A biblioteca já vem pronta",
+    texto: "Nas abas Desafios e Metas tem uma biblioteca com sugestões nas dez áreas da sua vida. Toque num cartão e ele vira um item seu, com as etapas já montadas. Dá pra editar depois." },
+  { icone: "humor", cor: "manteiga", titulo: "Registre como você está",
+    texto: "Na tela Hoje, toque numa carinha. Ele guarda com a hora e você pode escrever o porquê. Depois de responder, o cartão encolhe pra não ocupar espaço. O histórico fica na Revisão." },
+  { icone: "metas", cor: "periwinkle", titulo: "A Revisão é o seu retrovisor",
+    texto: "Toda semana ela mostra quanto você fechou, o gráfico por dia, os hábitos, o mapa do humor e um espaço pra escrever a reflexão da semana." },
+  { icone: "trofeus", cor: "manteiga", titulo: "Os troféus aparecem sozinhos",
+    texto: "Cada conquista tem uma regra e vira um selo quando você passa por ela. Não precisa fazer nada: a Agnes aparece pra avisar. O troféu fica guardado com a data." }
+];
+
+function desenharTutorial() {
+  $("#tutorial-conteudo").innerHTML = `
+    <div class="card card-destaque reveal" style="--grad-a:var(--rosa-claro);--grad-b:var(--lilas-claro);text-align:center">
+      ${A.agnes("acolhedora", 96)}
+      <p style="font-weight:600;margin-top:var(--space-2)">Oi, eu sou a Agnes</p>
+      <p class="apoio">Vou te mostrar o app em oito passos. Pode voltar aqui quando quiser, em Ajustes.</p>
+    </div>
+    <ol class="tutorial-passos">
+      ${TUTORIAL.map((p, i) => `
+        <li class="card reveal tutorial-passo" style="--tp:var(--${p.cor});--tp-claro:var(--${p.cor}-claro)">
+          <span class="tutorial-n">${i + 1}</span>
+          <span class="tutorial-icone">${(SECAO_ICONES[p.icone] || SECAO_ICONES.tarefas)()}</span>
+          <div>
+            <h3 class="titulo-m">${esc(p.titulo)}</h3>
+            <p class="apoio">${esc(p.texto)}</p>
+          </div>
+        </li>`).join("")}
+    </ol>
+    <div class="card reveal" style="text-align:center">
+      <p style="font-weight:600">Seus dados são só seus</p>
+      <p class="apoio">Tudo fica guardado neste navegador, neste aparelho. Nada vai pra internet, e ninguém além de você vê.</p>
+      <button class="btn btn-principal" id="tutorial-pronto" style="margin-top:var(--space-3)">Entendi, bora usar</button>
+    </div>`;
+  if (!D.estado.tutorialVisto) { D.estado.tutorialVisto = true; D.salvar(); }
+  observarEntradas();
 }
 
 /* ---------------------------------------- DETALHE */
@@ -716,8 +925,26 @@ function desenharBusca() {
 }
 
 function desenhar() {
-  ({ hoje: desenharHoje, semana: desenharSemana, mes: desenharMes, metas: desenharMetas,
-     revisao: desenharRevisao, busca: desenharBusca, detalhe: desenharDetalhe }[aba] || (() => {}))();
+  ({ hoje: desenharHoje, semana: desenharSemana, mes: desenharMes, desafios: desenharDesafios,
+     metas: desenharMetas, revisao: desenharRevisao, busca: desenharBusca,
+     detalhe: desenharDetalhe, trofeus: desenharTrofeus, tutorial: desenharTutorial }[aba] || (() => {}))();
+  conferirConquistas();
+}
+
+/** depois de qualquer ação, vê se nasceu um troféu novo */
+let festejandoSelo = false;
+function conferirConquistas() {
+  if (festejandoSelo) return;
+  const novos = D.conferirSelos();
+  if (!novos.length) return;
+  festejandoSelo = true;
+  const s = novos[0];
+  S.tocar("festa");
+  A.festejar(true, "", "", {
+    selo: s, titulo: s.nome, texto: s.comoGanha,
+    palavra: "troféu novo!", botao: "Ver meus troféus",
+    aoFechar: () => { festejandoSelo = false; irPara("trofeus"); }
+  });
 }
 
 /* ---------------------------------------- modais */
@@ -774,6 +1001,67 @@ function atualizarCamposRepeticao() {
   const tipo = $("#form-tarefa").repeteTipo.value;
   $("#campo-dias").classList.toggle("oculto", tipo !== "dias");
   $("#campo-ate").classList.toggle("oculto", tipo === "nenhuma");
+}
+
+/* ---------------------------------------- biblioteca */
+function criarDaBiblioteca(tipo, area, i) {
+  const item = B.pegar(area, tipo, i);
+  if (!item) return;
+  const nomeArea = (D.area(area) || {}).nome || "";
+
+  if (tipo === "desafio") {
+    if (D.desafiosAtivos().length >= 2) {
+      S.tocar("limite");
+      confirmar("Dois desafios já é o limite",
+        "Termine ou apague um dos ativos antes de começar este. É de propósito: três viram cobrança.", () => {});
+      return;
+    }
+    D.novoDesafio({ titulo: item.titulo, area, dias: item.dias, inicio: D.hoje() });
+    S.tocar("marcar");
+    desenhar();
+    avisarNaTela(`Desafio criado em ${nomeArea}. Marque o primeiro dia hoje.`);
+    return;
+  }
+
+  const m = D.novaMeta({ titulo: item.titulo, descricao: nomeArea, prazo: "" });
+  m.etapas = item.etapas.map(t => ({ titulo: t, feita: false }));
+  D.salvar();
+  S.tocar("marcar");
+  desenhar();
+  avisarNaTela(`Meta criada com ${item.etapas.length} etapas. Abra para pôr um prazo.`);
+}
+
+/** avisinho que sobe por cima do menu */
+function avisarNaTela(texto) {
+  const antigo = $(".aviso-flutuante");
+  if (antigo) antigo.remove();
+  const el = document.createElement("div");
+  el.className = "aviso-flutuante";
+  el.setAttribute("role", "status");
+  el.textContent = texto;
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("saindo");
+    setTimeout(() => el.remove(), 260);
+  }, 3200);
+}
+
+/* ---------------------------------------- ajustes */
+function pintarAjustes() {
+  $("#ajuste-nome-valor").textContent = D.nome() || "ainda sem nome";
+  const escuro = document.documentElement.dataset.tema === "escuro";
+  $("#ajuste-tema-valor").textContent = escuro ? "Escuro" : "Claro";
+  $("#ajuste-cat-valor").textContent = `${D.estado.categorias.length} categoria${D.estado.categorias.length === 1 ? "" : "s"}`;
+  const bs = $("#btn-som"), bm = $("#btn-musica");
+  bs.setAttribute("aria-checked", String(!!D.estado.som));
+  bm.setAttribute("aria-checked", String(!!D.estado.musica));
+}
+function abrirAjustes() { pintarAjustes(); abrir($("#dlg-ajustes")); }
+function abrirNome() {
+  const f = $("#form-nome");
+  f.nome.value = D.nome();
+  abrir($("#dlg-nome"));
+  setTimeout(() => f.nome.select(), 60);
 }
 
 /* ---------------------------------------- categorias */
@@ -866,34 +1154,29 @@ function abrirAssessment(aid) {
 
 /* ---------------------------------------- eventos */
 function ligarEventos() {
-  $("#btn-tema").innerHTML = A.mini("tema", 20);
   $("#btn-busca").innerHTML = A.mini("busca", 20);
-  $("#btn-categorias").innerHTML = A.mini("mais", 20);
+  $("#btn-trofeus").innerHTML = A.mini("trofeu", 20);
+  $("#btn-ajustes").innerHTML = A.mini("ajustes", 20);
   $("#marca-agnes").innerHTML = A.agnes("feliz", 34);
-  $("#btn-tema").onclick = alternarTema;
   $("#btn-busca").onclick = () => irPara("busca");
-  $("#btn-categorias").onclick = () => { desenharCategorias(); abrir($("#dlg-categorias")); };
+  $("#btn-trofeus").onclick = () => irPara("trofeus");
+  $("#btn-ajustes").onclick = abrirAjustes;
+  $("#btn-editar-nome").innerHTML = A.mini("editar", 16);
+  $("#trofeus-voltar").onclick = () => irPara(abaAnterior === "trofeus" ? "hoje" : abaAnterior);
+  $("#tutorial-voltar").onclick = () => irPara(abaAnterior === "tutorial" ? "hoje" : abaAnterior);
 
-  function pintarSom() {
-    const bs = $("#btn-som"), bm = $("#btn-musica");
-    bs.innerHTML = A.mini(D.estado.som ? "som" : "somOff", 20);
-    bs.setAttribute("aria-pressed", String(!!D.estado.som));
-    bs.style.color = D.estado.som ? "var(--framboesa)" : "var(--tinta-rotulo)";
-    bm.innerHTML = A.mini(D.estado.musica ? "musica" : "musicaOff", 20);
-    bm.setAttribute("aria-pressed", String(!!D.estado.musica));
-    bm.style.color = D.estado.musica ? "var(--framboesa)" : "var(--tinta-rotulo)";
-  }
-  pintarSom();
-  $("#btn-som").onclick = () => { S.alternar("som"); pintarSom(); };
-  $("#btn-musica").onclick = () => { S.alternar("musica"); pintarSom(); };
+  // ajustes
+  $$("#dlg-ajustes .ajuste-icone").forEach(s => { s.innerHTML = A.mini(s.dataset.icone, 20); });
+  $("#btn-tema").onclick = () => { alternarTema(); pintarAjustes(); };
+  $("#btn-categorias").onclick = () => { fechar($("#dlg-ajustes")); setTimeout(() => { desenharCategorias(); abrir($("#dlg-categorias")); }, 180); };
+  $("#btn-tutorial").onclick = () => { fechar($("#dlg-ajustes")); setTimeout(() => irPara("tutorial"), 180); };
+  $("#btn-trocar-nome").onclick = () => { fechar($("#dlg-ajustes")); setTimeout(abrirNome, 180); };
+  $("#btn-som").onclick = () => { S.alternar("som"); pintarAjustes(); };
+  $("#btn-musica").onclick = () => { S.alternar("musica"); pintarAjustes(); };
 
   // trocar o nome
-  $("#t-hoje").onclick = () => {
-    const f = $("#form-nome");
-    f.nome.value = D.nome();
-    abrir($("#dlg-nome"));
-    setTimeout(() => f.nome.select(), 60);
-  };
+  $("#t-hoje").onclick = abrirNome;
+  $("#btn-editar-nome").onclick = abrirNome;
   $("#form-nome").onsubmit = () => {
     const v = $("#form-nome").nome.value.trim();
     if (v) { D.nome(v); S.tocar("marcar"); }
@@ -914,9 +1197,22 @@ function ligarEventos() {
     .forEach(([sel, ic]) => { const e = $(sel); if (e) e.innerHTML = A.mini(ic, 18); });
   $("#detalhe-voltar").innerHTML = A.mini("volta", 18) + " Voltar";
 
-  $("#hoje-anterior").onclick = () => { diaHoje = D.somaDias(diaHoje, -1); desenharHoje(); };
-  $("#hoje-proximo").onclick = () => { diaHoje = D.somaDias(diaHoje, 1); desenharHoje(); };
-  $("#hoje-voltar").onclick = () => { diaHoje = D.hoje(); desenharHoje(); };
+  const trocarDia = (novo) => {
+    const indo = novo > diaHoje ? 1 : -1;
+    diaHoje = novo;
+    humorAberto = false;
+    clearTimeout(relogioEncolher);
+    desenharHoje();
+    S.tocar("toque");
+    const faixa = $("#tela-hoje .faixa");
+    if (faixa && !semMovimento()) {
+      faixa.animate([{ transform: `translateX(${indo * 18}px)`, opacity: .5 }, { transform: "none", opacity: 1 }],
+        { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)" });
+    }
+  };
+  $("#hoje-anterior").onclick = () => trocarDia(D.somaDias(diaHoje, -1));
+  $("#hoje-proximo").onclick = () => trocarDia(D.somaDias(diaHoje, 1));
+  $("#hoje-voltar").onclick = () => trocarDia(D.hoje());
   $("#semana-anterior").onclick = () => { diaSemana = D.somaDias(diaSemana, -7); desenharSemana(); };
   $("#semana-proxima").onclick = () => { diaSemana = D.somaDias(diaSemana, 7); desenharSemana(); };
   $("#semana-atual").onclick = () => { diaSemana = D.hoje(); desenharSemana(); };
@@ -1046,7 +1342,21 @@ function ligarEventos() {
     avisarSalvo("Dia guardado ✓");
   };
   $("#btn-ver-humor").onclick = () => { irPara("revisao"); setTimeout(() => rolarAte("#bloco-humor"), 360); };
-  $("#reflexao").oninput = (ev) => D.reflexao(D.resumoSemana(diaRevisao).semana, ev.target.value);
+
+  $("#reflexao").oninput = (ev) => {
+    D.reflexao(D.resumoSemana(diaRevisao).semana, ev.target.value);
+    $("#reflexao-estado").textContent = "não guardada";
+  };
+  $("#btn-salvar-reflexao").onclick = () => {
+    const semana = D.resumoSemana(diaRevisao).semana;
+    D.reflexao(semana, $("#reflexao").value);
+    S.tocar("toque");
+    const alvo = $("#reflexao-salva");
+    alvo.textContent = $("#reflexao").value.trim() ? "Guardado ✓" : "Vazio, nada a guardar";
+    alvo.classList.remove("aparece"); void alvo.offsetWidth; alvo.classList.add("aparece");
+    $("#reflexao-estado").textContent = $("#reflexao").value.trim() ? "guardada" : "";
+    conferirConquistas();
+  };
   $("#busca-campo").oninput = desenharBusca;
 
   document.addEventListener("click", aoClicar);
@@ -1115,6 +1425,7 @@ function aoClicar(ev) {
     const tirando = D.humor(diaHoje) === v;
     D.humor(diaHoje, tirando ? "" : v);
     S.tocar(tirando ? "desmarcar" : "marcar");
+    humorAberto = true;   // deixa a confirmação na tela antes de encolher
     desenharHumor();
     if (!tirando) {
       const novo = $(`[data-humor="${v}"]`);
@@ -1124,9 +1435,23 @@ function aoClicar(ev) {
         brilhar(novo);
       }
       avisarSalvo("Humor guardado ✓");
-    } else avisarSalvo("Humor apagado");
+      encolherHumorDepois();
+    } else { avisarSalvo("Humor apagado"); clearTimeout(relogioEncolher); }
     return;
   }
+  if (alvo.closest("#humor-tira")) { abrirHumor(); return; }
+  // filtros de área da biblioteca
+  const fArea = alvo.closest("[data-area-desafio]");
+  if (fArea) { areaDesafios = fArea.dataset.areaDesafio; S.tocar("toque"); desenharDesafios(); return; }
+  const fAreaM = alvo.closest("[data-area-meta]");
+  if (fAreaM) { areaMetas = fAreaM.dataset.areaMeta; S.tocar("toque"); desenharMetas(); return; }
+
+  // criar a partir da biblioteca
+  const sug = alvo.closest("[data-sugestao]");
+  if (sug) { criarDaBiblioteca(sug.dataset.sugestao, sug.dataset.area, Number(sug.dataset.i)); return; }
+
+  if (alvo.closest("#tutorial-pronto")) { irPara("hoje"); return; }
+
   const calDia = alvo.closest("[data-dia]");
   if (calDia) { diaMesSel = calDia.dataset.dia; desenharMes(); return; }
 
@@ -1296,9 +1621,11 @@ function iniciar() {
   aplicarTema();
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!D.estado.tema) aplicarTema(); });
   montarNav();
+  montarSecoes();
   $$(".faixa").forEach(f => f.insertAdjacentHTML("beforeend", A.ondinha()));
   ligarEventos();
-  trocarTela("hoje");
+  // na primeira vez, o tutorial abre sozinho
+  trocarTela(D.estado.tutorialVisto ? "hoje" : "tutorial");
   requestAnimationFrame(moverCorredor);
   addEventListener("resize", moverCorredor);
   S.retomarSeLigado();
@@ -1308,16 +1635,19 @@ function iniciar() {
 /* ---------------------------------------- versão e atualização
    O app fica guardado no aparelho pra funcionar sem internet. Sem isso aqui,
    uma versão nova no servidor não chegaria até a tela. */
-const VERSAO_APP = "1.2.0";
+const VERSAO_APP = "1.3.0";
 
 function cuidarDaVersao() {
   const marca = $("#versao-app");
   if (marca) marca.textContent = `versão ${VERSAO_APP}`;
   if (!("serviceWorker" in navigator)) return;
 
+  // na primeira visita o worker assume sem haver nada velho na tela:
+  // recarregar ali atrapalharia, então só recarrega quando é troca de versão
+  const jaTinhaControle = !!navigator.serviceWorker.controller;
   let recarregando = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (recarregando) return;
+    if (!jaTinhaControle || recarregando) return;
     recarregando = true;
     location.reload();
   });

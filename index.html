@@ -25,11 +25,9 @@
     <span class="nome">Annie's New Life</span>
   </div>
   <div class="topo-acoes">
-    <button class="btn-icone" id="btn-categorias" aria-label="Categorias"></button>
-    <button class="btn-icone" id="btn-som" aria-label="Ligar ou desligar os efeitos sonoros" aria-pressed="true"></button>
-    <button class="btn-icone" id="btn-musica" aria-label="Ligar ou desligar a musiquinha" aria-pressed="false"></button>
+    <button class="btn-icone" id="btn-trofeus" aria-label="Meus troféus"></button>
     <button class="btn-icone" id="btn-busca" aria-label="Buscar"></button>
-    <button class="btn-icone" id="btn-tema" aria-label="Alternar tema claro e escuro"></button>
+    <button class="btn-icone" id="btn-ajustes" aria-label="Ajustes"></button>
   </div>
 </header>
 
@@ -39,9 +37,20 @@
   <section class="tela ativa" id="tela-hoje" aria-labelledby="t-hoje">
     <div class="faixa" style="--faixa-cor: var(--aba-hoje-claro)">
       <div class="faixa-topo">
-        <div>
-          <p class="micro" id="hoje-data"></p>
-          <button class="destaque saudacao" id="t-hoje" title="Tocar para trocar o nome"></button>
+        <div style="min-width:0">
+          <div class="dia-cartao">
+            <span class="etiqueta-dia" id="hoje-etiqueta" aria-hidden="true"></span>
+            <div style="min-width:0">
+              <p class="micro" id="hoje-semana"></p>
+              <p class="apoio" id="hoje-data" style="margin:0"></p>
+            </div>
+          </div>
+          <div class="linha-nome">
+            <button class="destaque saudacao" id="t-hoje"></button>
+            <button class="btn-nome" id="btn-editar-nome" aria-label="Trocar o nome">
+              <span class="sr">Trocar o nome</span>
+            </button>
+          </div>
           <p class="apoio" id="hoje-progresso"></p>
         </div>
         <div class="faixa-deco" id="hoje-deco"></div>
@@ -60,41 +69,64 @@
     </div>
 
     <div class="bloco" id="bloco-habitos">
-      <div class="bloco-topo">
-        <h2 class="titulo-m">Hábitos de hoje</h2>
-        <button class="btn btn-discreto" id="btn-novo-habito" style="min-height:36px;padding:6px 14px">Novo</button>
+      <div class="secao" data-icone="habitos" data-cor="menta">
+        <h2 class="titulo-m secao-titulo">Hábitos de hoje</h2>
+        <span class="secao-extra">
+          <button class="btn btn-discreto" id="btn-novo-habito" style="min-height:34px;padding:5px 14px">Novo</button>
+        </span>
       </div>
       <div class="grade" id="lista-habitos"></div>
     </div>
 
     <div class="bloco" id="bloco-desafios-hoje">
-      <div class="bloco-topo"><h2 class="titulo-m">Desafios de hoje</h2></div>
+      <div class="secao" data-icone="desafios" data-cor="lilas">
+        <h2 class="titulo-m secao-titulo">Desafios de hoje</h2>
+        <span class="secao-extra"><span class="micro" id="desafios-hoje-conta"></span></span>
+      </div>
       <div class="grade" id="lista-desafios-hoje"></div>
     </div>
 
     <div class="bloco">
-      <div class="bloco-topo"><h2 class="titulo-m">Tarefas</h2></div>
+      <div class="secao" data-icone="tarefas" data-cor="rosa">
+        <h2 class="titulo-m secao-titulo">Tarefas</h2>
+        <span class="secao-extra"><span class="micro" id="tarefas-conta"></span></span>
+      </div>
       <ul class="lista" id="lista-tarefas"></ul>
     </div>
 
     <div class="bloco oculto" id="bloco-feitas">
-      <div class="bloco-topo"><h2 class="titulo-m">Concluídas</h2></div>
+      <div class="secao" data-icone="feitas" data-cor="menta">
+        <h2 class="titulo-m secao-titulo">Concluídas</h2>
+      </div>
       <ul class="lista" id="lista-feitas"></ul>
     </div>
 
     <div class="bloco oculto" id="bloco-pendentes">
-      <div class="bloco-topo">
-        <h2 class="titulo-m">Ficou para trás</h2>
-        <span class="micro" id="pendentes-conta"></span>
+      <div class="secao" data-icone="pendentes" data-cor="pessego">
+        <h2 class="titulo-m secao-titulo">Ficou para trás</h2>
+        <span class="secao-extra"><span class="micro" id="pendentes-conta"></span></span>
       </div>
       <ul class="lista" id="lista-pendentes"></ul>
     </div>
 
     <div class="bloco">
-      <div class="bloco-topo">
-        <h2 class="titulo-m">Como foi o dia</h2>
-        <button class="btn btn-discreto" id="btn-ver-humor" style="min-height:36px;padding:6px 14px">Histórico</button>
+      <div class="secao" data-icone="humor" data-cor="manteiga">
+        <h2 class="titulo-m secao-titulo">Como foi o dia</h2>
+        <span class="secao-extra">
+          <button class="btn btn-discreto" id="btn-ver-humor" style="min-height:34px;padding:5px 14px">Histórico</button>
+        </span>
       </div>
+
+      <!-- depois de respondido, o card encolhe nesta tira -->
+      <button class="card humor-tira oculto" id="humor-tira">
+        <span class="humor-tira-carinha" id="humor-tira-carinha"></span>
+        <span class="humor-tira-texto">
+          <b id="humor-tira-titulo"></b>
+          <span class="apoio" id="humor-tira-sub"></span>
+        </span>
+        <span class="humor-tira-abrir" id="humor-tira-abrir">Abrir</span>
+      </button>
+
       <div class="card" id="card-humor">
         <p class="micro">Marque como você está</p>
         <div id="humor-linha" class="humor-linha"></div>
@@ -155,40 +187,119 @@
   <!-- ===================== METAS ===================== -->
   <section class="tela" id="tela-metas" aria-labelledby="t-metas">
     <div class="faixa" style="--faixa-cor: var(--aba-metas-claro)">
-      <p class="micro">Metas e desafios</p>
+      <p class="micro">Metas</p>
       <h1 class="titulo-g" id="t-metas">O que quero alcançar</h1>
       <p class="apoio" id="metas-apoio"></p>
     </div>
 
     <div class="bloco">
-      <div class="bloco-topo">
-        <h2 class="titulo-m">Desafios de autocuidado</h2>
-        <button class="btn btn-principal" id="btn-novo-desafio" style="min-height:40px;padding:8px 18px">Novo desafio</button>
-      </div>
-      <p class="apoio" id="desafios-aviso"></p>
-      <div class="grade" id="lista-desafios"></div>
-    </div>
-
-    <div class="bloco">
-      <div class="bloco-topo">
-        <h2 class="titulo-m">Como estou por área</h2>
-        <button class="btn btn-discreto" id="btn-assessments" style="min-height:36px;padding:6px 14px">Fazer um teste</button>
-      </div>
-      <div class="grade" id="lista-assessments"></div>
-    </div>
-
-    <div class="bloco">
-      <div class="bloco-topo">
-        <h2 class="titulo-m">Metas em andamento</h2>
-        <button class="btn btn-principal" id="btn-nova-meta" style="min-height:40px;padding:8px 18px">Nova meta</button>
+      <div class="secao" data-icone="metas" data-cor="manteiga">
+        <h2 class="titulo-m secao-titulo">Em andamento</h2>
+        <span class="secao-extra">
+          <button class="btn btn-principal" id="btn-nova-meta" style="min-height:34px;padding:5px 16px">Nova</button>
+        </span>
       </div>
       <div class="grade" id="lista-metas"></div>
     </div>
 
+    <div class="bloco">
+      <div class="secao" data-icone="biblioteca" data-cor="pessego">
+        <h2 class="titulo-m secao-titulo">Metas sugeridas</h2>
+        <span class="secao-extra"><span class="micro">por área</span></span>
+      </div>
+      <p class="apoio">Escolha uma área e toque numa sugestão para ela virar uma meta sua, já com as etapas.</p>
+      <div class="area-filtros" id="metas-areas"></div>
+      <div class="grade" id="metas-sugeridas"></div>
+    </div>
+
+    <div class="bloco">
+      <div class="secao" data-icone="assessments" data-cor="periwinkle">
+        <h2 class="titulo-m secao-titulo">Como estou por área</h2>
+        <span class="secao-extra">
+          <button class="btn btn-discreto" id="btn-assessments" style="min-height:34px;padding:5px 14px">Testes</button>
+        </span>
+      </div>
+      <div class="grade" id="lista-assessments"></div>
+    </div>
+
     <div class="bloco oculto" id="bloco-metas-feitas">
-      <div class="bloco-topo"><h2 class="titulo-m">Metas concluídas</h2></div>
+      <div class="secao" data-icone="feitas" data-cor="menta">
+        <h2 class="titulo-m secao-titulo">Metas concluídas</h2>
+      </div>
       <div class="grade" id="lista-metas-feitas"></div>
     </div>
+  </section>
+
+  <!-- ===================== DESAFIOS ===================== -->
+  <section class="tela" id="tela-desafios" aria-labelledby="t-desafios">
+    <div class="faixa" style="--faixa-cor: var(--aba-desafios-claro)">
+      <p class="micro">Desafios</p>
+      <h1 class="titulo-g" id="t-desafios">Compromissos curtos</h1>
+      <p class="apoio" id="desafios-apoio"></p>
+    </div>
+
+    <div class="bloco">
+      <div class="secao" data-icone="desafios" data-cor="lilas">
+        <h2 class="titulo-m secao-titulo">Ativos agora</h2>
+        <span class="secao-extra">
+          <button class="btn btn-principal" id="btn-novo-desafio" style="min-height:34px;padding:5px 16px">Criar</button>
+        </span>
+      </div>
+      <p class="apoio" id="desafios-aviso"></p>
+      <div class="grade" id="lista-desafios-ativos"></div>
+    </div>
+
+    <div class="bloco">
+      <div class="secao" data-icone="biblioteca" data-cor="rosa">
+        <h2 class="titulo-m secao-titulo">Biblioteca</h2>
+        <span class="secao-extra"><span class="micro">10 áreas</span></span>
+      </div>
+      <p class="apoio">Desafio é curto, tem começo e fim, e você marca todo dia. Toque num cartão para começar.</p>
+      <div class="area-filtros" id="desafios-areas"></div>
+      <div class="grade" id="desafios-sugeridos"></div>
+    </div>
+
+    <div class="bloco oculto" id="bloco-desafios-feitos">
+      <div class="secao" data-icone="trofeus" data-cor="manteiga">
+        <h2 class="titulo-m secao-titulo">Já venci</h2>
+        <span class="secao-extra"><span class="micro" id="desafios-feitos-conta"></span></span>
+      </div>
+      <div class="grade" id="lista-desafios-feitos"></div>
+    </div>
+  </section>
+
+  <!-- ===================== TROFÉUS ===================== -->
+  <section class="tela" id="tela-trofeus" aria-labelledby="t-trofeus">
+    <div class="faixa" style="--faixa-cor: var(--manteiga-claro)">
+      <button class="btn btn-secundario" id="trofeus-voltar" style="margin-bottom:var(--space-3)">Voltar</button>
+      <p class="micro">Troféus</p>
+      <h1 class="titulo-g" id="t-trofeus">O que você já conquistou</h1>
+      <p class="apoio" id="trofeus-apoio"></p>
+    </div>
+    <div class="bloco" id="bloco-trofeus-ganhos">
+      <div class="secao" data-icone="trofeus" data-cor="manteiga">
+        <h2 class="titulo-m secao-titulo">Conquistados</h2>
+        <span class="secao-extra"><span class="micro" id="trofeus-conta"></span></span>
+      </div>
+      <div class="grade-trofeus" id="lista-trofeus"></div>
+    </div>
+    <div class="bloco">
+      <div class="secao" data-icone="bloqueado" data-cor="periwinkle">
+        <h2 class="titulo-m secao-titulo">Ainda por vir</h2>
+      </div>
+      <div class="grade-trofeus" id="lista-trofeus-faltam"></div>
+    </div>
+  </section>
+
+  <!-- ===================== TUTORIAL ===================== -->
+  <section class="tela" id="tela-tutorial" aria-labelledby="t-tutorial">
+    <div class="faixa" style="--faixa-cor: var(--menta-claro)">
+      <button class="btn btn-secundario" id="tutorial-voltar" style="margin-bottom:var(--space-3)">Voltar</button>
+      <p class="micro">Tutorial</p>
+      <h1 class="titulo-g" id="t-tutorial">Como usar o app</h1>
+      <p class="apoio">Cinco minutos de leitura e você conhece tudo.</p>
+    </div>
+    <div id="tutorial-conteudo"></div>
   </section>
 
   <!-- ===================== REVISÃO ===================== -->
@@ -214,10 +325,17 @@
     </div>
 
     <div class="bloco" style="margin-top:var(--space-5)">
+      <div class="secao" data-icone="reflexao" data-cor="rosa">
+        <h2 class="titulo-m secao-titulo">Reflexão da semana</h2>
+        <span class="secao-extra"><span class="micro" id="reflexao-estado"></span></span>
+      </div>
       <div class="card">
-        <h2 class="titulo-m" style="margin-bottom:var(--space-2)">Reflexão da semana</h2>
         <p class="apoio">O que funcionou bem? O que quero ajustar?</p>
-        <textarea id="reflexao" placeholder="Escreva do seu jeito." style="width:100%;margin-top:var(--space-3);padding:12px;border:2px solid var(--borda);border-radius:var(--radius-md);background:var(--creme-100);color:var(--tinta);min-height:120px"></textarea>
+        <textarea id="reflexao" placeholder="Escreva do seu jeito."></textarea>
+        <div class="salvar-dia">
+          <span class="apoio" id="reflexao-salva"></span>
+          <button class="btn btn-principal" id="btn-salvar-reflexao">Guardar reflexão</button>
+        </div>
       </div>
     </div>
   </section>
@@ -364,6 +482,48 @@
   </form>
 </dialog>
 
+<dialog id="dlg-ajustes">
+  <h2>Ajustes</h2>
+
+  <div class="ajuste" id="ajuste-nome">
+    <span class="ajuste-icone" data-icone="nome"></span>
+    <span class="ajuste-texto"><b>Seu nome</b><span class="apoio" id="ajuste-nome-valor"></span></span>
+    <button class="btn btn-secundario" id="btn-trocar-nome" style="min-height:40px">Trocar</button>
+  </div>
+
+  <div class="ajuste">
+    <span class="ajuste-icone" data-icone="tema"></span>
+    <span class="ajuste-texto"><b>Tema</b><span class="apoio" id="ajuste-tema-valor"></span></span>
+    <button class="btn btn-secundario" id="btn-tema" style="min-height:40px">Alternar</button>
+  </div>
+
+  <div class="ajuste">
+    <span class="ajuste-icone" data-icone="som"></span>
+    <span class="ajuste-texto"><b>Efeitos sonoros</b><span class="apoio">Sons curtos ao marcar e comemorar.</span></span>
+    <button class="chave" id="btn-som" role="switch" aria-checked="true" aria-label="Efeitos sonoros"><i></i></button>
+  </div>
+
+  <div class="ajuste">
+    <span class="ajuste-icone" data-icone="musica"></span>
+    <span class="ajuste-texto"><b>Musiquinha</b><span class="apoio">Um loop calmo enquanto você usa.</span></span>
+    <button class="chave" id="btn-musica" role="switch" aria-checked="false" aria-label="Musiquinha"><i></i></button>
+  </div>
+
+  <div class="ajuste">
+    <span class="ajuste-icone" data-icone="categorias"></span>
+    <span class="ajuste-texto"><b>Categorias</b><span class="apoio" id="ajuste-cat-valor"></span></span>
+    <button class="btn btn-secundario" id="btn-categorias" style="min-height:40px">Abrir</button>
+  </div>
+
+  <div class="ajuste">
+    <span class="ajuste-icone" data-icone="tutorial"></span>
+    <span class="ajuste-texto"><b>Como usar o app</b><span class="apoio">O tutorial completo.</span></span>
+    <button class="btn btn-secundario" id="btn-tutorial" style="min-height:40px">Ver</button>
+  </div>
+
+  <div class="modal-acoes"><button type="button" class="btn btn-discreto" data-fechar>Fechar</button></div>
+</dialog>
+
 <dialog id="dlg-categorias">
   <h2>Categorias</h2>
   <p class="apoio">O app sugere a próxima cor livre. Você troca quando quiser.</p>
@@ -441,6 +601,7 @@
 <script src="js/som.js"></script>
 <script src="js/arte.js"></script>
 <script src="js/dados.js"></script>
+<script src="js/biblioteca.js"></script>
 <script src="js/assessments.js"></script>
 <script src="js/app.js"></script>
 </body>

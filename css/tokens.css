@@ -35,6 +35,7 @@
   --aba-hoje: var(--rosa);        --aba-hoje-claro: var(--rosa-claro);
   --aba-semana: var(--periwinkle);--aba-semana-claro: var(--periwinkle-claro);
   --aba-mes: var(--lilas);        --aba-mes-claro: var(--lilas-claro);
+  --aba-desafios: var(--lilas);   --aba-desafios-claro: var(--lilas-claro);
   --aba-metas: var(--manteiga);   --aba-metas-claro: var(--manteiga-claro);
   --aba-revisao: var(--menta);    --aba-revisao-claro: var(--menta-claro);
 
@@ -110,5 +111,7 @@
 [data-tema="escuro"][data-aba="hoje"]    { --creme-100: #2a1f27; }
 [data-tema="escuro"][data-aba="semana"]  { --creme-100: #1f2130; }
 [data-tema="escuro"][data-aba="mes"]     { --creme-100: #261f30; }
+[data-tema="escuro"][data-aba="desafios"]{ --creme-100: #261f30; }
 [data-tema="escuro"][data-aba="metas"]   { --creme-100: #2a2520; }
+[data-tema="escuro"][data-aba="trofeus"] { --creme-100: #2a2520; }
 [data-tema="escuro"][data-aba="revisao"] { --creme-100: #1f2a28; }

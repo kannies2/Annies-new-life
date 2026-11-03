@@ -4,13 +4,30 @@
 const CHAVE = "annies-new-life/v1";
 
 const AREAS = [
-  { id: "espiritual", nome: "Espiritual", cor: "lilas" },
-  { id: "mental",     nome: "Mental",     cor: "periwinkle" },
-  { id: "fisica",     nome: "Física",     cor: "menta" },
-  { id: "beleza",     nome: "Beleza",     cor: "rosa" },
-  { id: "bemestar",   nome: "Bem-estar",  cor: "manteiga" },
-  { id: "carreira",   nome: "Carreira",   cor: "pessego" }
+  { id: "espiritualidade", nome: "Espiritualidade", cor: "lilas",
+    sobre: "Fé, conexão com Deus, oração e propósito." },
+  { id: "fisica", nome: "Saúde física", cor: "menta",
+    sobre: "Movimento, disposição, alimentação e cuidados com o corpo." },
+  { id: "mental", nome: "Saúde mental", cor: "periwinkle",
+    sobre: "Equilíbrio emocional, concentração e autoconhecimento." },
+  { id: "profissional", nome: "Desenvolvimento profissional", cor: "pessego",
+    sobre: "Conhecimento, carreira, habilidades e crescimento intelectual." },
+  { id: "bemestar", nome: "Bem-estar", cor: "manteiga",
+    sobre: "Qualidade de vida, descanso, lazer e equilíbrio cotidiano." },
+  { id: "jogos", nome: "Jogos e diversão", cor: "rosa",
+    sobre: "Jogos, entretenimento, criatividade e experiências divertidas." },
+  { id: "beleza", nome: "Beleza e autocuidado", cor: "rosa",
+    sobre: "Cuidados pessoais, aparência, pele, cabelo e apresentação." },
+  { id: "autoestima", nome: "Autoestima", cor: "lilas",
+    sobre: "Autoconfiança, identidade, limites e valorização pessoal." },
+  { id: "financas", nome: "Finanças pessoais", cor: "menta",
+    sobre: "Organização financeira, economia, planejamento e patrimônio." },
+  { id: "viagens", nome: "Viagens e experiências", cor: "periwinkle",
+    sobre: "Turismo, descobertas, cultura e novas experiências." }
 ];
+
+/* nomes antigos das áreas, para não perder o que já estava guardado */
+const AREAS_ANTIGAS = { espiritual: "espiritualidade", carreira: "profissional" };
 
 const CORES = ["rosa", "lilas", "menta", "manteiga", "pessego", "periwinkle"];
 
@@ -32,8 +49,10 @@ const VAZIO = {
   ],
   anotacoes: {},           // "2026-11-02": "texto"
   reflexoes: {},           // "2026-W45": "texto"
-  humores: {},             // "2026-11-02": "ok"
-  assessments: []          // resultados salvos
+  humores: {},             // "2026-11-02": { v, em, nota }
+  assessments: [],         // resultados salvos
+  selos: {},               // "primeiro-passo": "2026-11-03"
+  tutorialVisto: false
 };
 
 let estado = carregar();
@@ -43,7 +62,11 @@ function carregar() {
     const bruto = localStorage.getItem(CHAVE);
     if (!bruto) return structuredClone(VAZIO);
     const dados = JSON.parse(bruto);
-    return Object.assign(structuredClone(VAZIO), dados);
+    const pronto = Object.assign(structuredClone(VAZIO), dados);
+    // as áreas foram renomeadas; o que já existia continua valendo
+    (pronto.desafios || []).forEach(d => { if (AREAS_ANTIGAS[d.area]) d.area = AREAS_ANTIGAS[d.area]; });
+    (pronto.assessments || []).forEach(a => { if (AREAS_ANTIGAS[a.area]) a.area = AREAS_ANTIGAS[a.area]; });
+    return pronto;
   } catch (e) {
     console.warn("Não deu para ler os dados salvos, começando do zero.", e);
     return structuredClone(VAZIO);
@@ -323,6 +346,74 @@ function reflexao(semana, texto) {
   salvar();
 }
 
+/* ---------------- selos ----------------
+   Cada selo tem uma regra que olha os dados. Quando a regra passa pela
+   primeira vez, a data fica guardada e o selo nunca mais sai. */
+const SELOS = [
+  { id: "primeiro-passo", nome: "Primeiro passo", sub: "1ª", cor: "rosa", forma: "estrela",
+    comoGanha: "Concluir a primeira tarefa.",
+    regra: () => estado.tarefas.some(t => t.feita) },
+  { id: "dia-limpo", nome: "Dia redondo", sub: "DIA", cor: "oliva", forma: "selo",
+    comoGanha: "Terminar um dia com todas as tarefas concluídas.",
+    regra: () => {
+      const dias = [...new Set(estado.tarefas.filter(t => t.data).map(t => t.data))];
+      return dias.some(d => { const ts = tarefasDoDia(d); return ts.length >= 2 && ts.every(t => t.feita); });
+    } },
+  { id: "dez-tarefas", nome: "Dez de dez", sub: "10", cor: "manteiga", forma: "selo",
+    comoGanha: "Concluir dez tarefas.",
+    regra: () => estado.tarefas.filter(t => t.feita).length >= 10 },
+  { id: "cinquenta-tarefas", nome: "Meia centena", sub: "50", cor: "pessego", forma: "selo",
+    comoGanha: "Concluir cinquenta tarefas.",
+    regra: () => estado.tarefas.filter(t => t.feita).length >= 50 },
+  { id: "semana-de-habito", nome: "Sete seguidos", sub: "7", cor: "menta", forma: "corrente",
+    comoGanha: "Manter um hábito por sete dias seguidos.",
+    regra: () => estado.habitos.some(h => melhorSequencia(h) >= 7) },
+  { id: "mes-de-habito", nome: "Mês inteiro", sub: "30", cor: "periwinkle", forma: "corrente",
+    comoGanha: "Manter um hábito por trinta dias seguidos.",
+    regra: () => estado.habitos.some(h => melhorSequencia(h) >= 30) },
+  { id: "primeiro-desafio", nome: "Desafio vencido", sub: "✓", cor: "lilas", forma: "medalha",
+    comoGanha: "Concluir o primeiro desafio.",
+    regra: () => estado.desafios.some(d => d.concluido) },
+  { id: "cinco-desafios", nome: "Colecionadora", sub: "5", cor: "rosa", forma: "medalha",
+    comoGanha: "Concluir cinco desafios.",
+    regra: () => estado.desafios.filter(d => d.concluido).length >= 5 },
+  { id: "areas-tres", nome: "Vida em três", sub: "3", cor: "manteiga", forma: "flor",
+    comoGanha: "Concluir desafios em três áreas diferentes.",
+    regra: () => new Set(estado.desafios.filter(d => d.concluido).map(d => d.area)).size >= 3 },
+  { id: "areas-seis", nome: "Vida inteira", sub: "6", cor: "lilas", forma: "flor",
+    comoGanha: "Concluir desafios em seis áreas diferentes.",
+    regra: () => new Set(estado.desafios.filter(d => d.concluido).map(d => d.area)).size >= 6 },
+  { id: "primeira-meta", nome: "Meta cumprida", sub: "META", cor: "oliva", forma: "medalha",
+    comoGanha: "Concluir a primeira meta.",
+    regra: () => estado.metas.some(m => m.concluida) },
+  { id: "cinco-metas", nome: "Realizadora", sub: "5", cor: "pessego", forma: "medalha",
+    comoGanha: "Concluir cinco metas.",
+    regra: () => estado.metas.filter(m => m.concluida).length >= 5 },
+  { id: "humor-sete", nome: "Me escutando", sub: "7", cor: "periwinkle", forma: "carinha",
+    comoGanha: "Registrar o humor por sete dias seguidos.",
+    regra: () => humorSequencia(hoje()) >= 7 || humorSequencia(somaDias(hoje(), -1)) >= 7 },
+  { id: "humor-trinta", nome: "Mês de escuta", sub: "30", cor: "rosa", forma: "carinha",
+    comoGanha: "Registrar o humor por trinta dias seguidos.",
+    regra: () => humorSequencia(hoje()) >= 30 || humorSequencia(somaDias(hoje(), -1)) >= 30 },
+  { id: "reflexao", nome: "Olhar pra trás", sub: "4", cor: "menta", forma: "estrela",
+    comoGanha: "Escrever a reflexão de quatro semanas.",
+    regra: () => Object.values(estado.reflexoes).filter(t => (t || "").trim().length > 20).length >= 4 }
+];
+
+/** confere as regras e devolve os selos ganhos agora */
+function conferirSelos() {
+  const novos = [];
+  for (const s of SELOS) {
+    if (estado.selos[s.id]) continue;
+    let passou = false;
+    try { passou = !!s.regra(); } catch (e) { passou = false; }
+    if (passou) { estado.selos[s.id] = hoje(); novos.push(s); }
+  }
+  if (novos.length) salvar();
+  return novos;
+}
+function selosGanhos() { return SELOS.filter(s => estado.selos[s.id]); }
+
 /* ---------------- busca ---------------- */
 function buscar(termo, filtros = {}) {
   const q = termo.trim().toLowerCase();
@@ -380,5 +471,7 @@ window.Dados = {
   novaCategoria, corSugerida, excluirCategoria, categoria,
   anotacao, humor, humorRegistro, humorNota, humorSerie, humorContagem, humorSequencia,
   reflexao, buscar, resumoSemana, id,
+  SELOS, conferirSelos, selosGanhos,
+  area: (aid) => AREAS.find(a => a.id === aid),
   nome: (novo) => { if (novo === undefined) return estado.nome || ""; estado.nome = novo.trim().slice(0, 40); salvar(); return estado.nome; }
 };

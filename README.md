@@ -41,13 +41,31 @@ Não sai do aparelho e não tem cópia em servidor. Se você limpar os dados do 
 | `index.html` | A estrutura das telas |
 | `css/tokens.css` | Toda a paleta, tipografia, raio e espaçamento. Mexa aqui para mudar o visual |
 | `css/style.css` | Os estilos. Nenhuma cor solta, só variáveis |
-| `js/dados.js` | Armazenamento, modelo de dados, recorrência e cálculos |
+| `js/dados.js` | Armazenamento, modelo de dados, recorrência, cálculos, áreas e troféus |
+| `js/biblioteca.js` | Os desafios e metas sugeridos de cada área |
 | `js/arte.js` | Peças gráficas da biblioteca, em SVG |
 | `js/agnes-arte.js` | A Agnes em seis expressões. Gerado, não editar à mão |
 | `js/assessments.js` | Estrutura dos testes. É aqui que você preenche as perguntas |
 | `js/som.js` | Efeitos sonoros e musiquinha, sintetizados pelo navegador |
 | `js/app.js` | A interface e o comportamento |
 | `sw.js` | Guarda o app para funcionar sem internet |
+
+## As dez áreas
+
+Espiritualidade, saúde física, saúde mental, desenvolvimento profissional, bem-estar,
+jogos e diversão, beleza e autocuidado, autoestima, finanças pessoais, viagens e experiências.
+
+Cada uma tem cor, ícone próprio e sugestões prontas em `js/biblioteca.js`:
+dois desafios e duas metas, com as etapas já escritas. Para mexer, edite esse arquivo.
+
+Desafio é curto, tem começo e fim, e você marca todo dia. Meta é de médio ou longo prazo,
+tem etapas e prazo. O limite de dois desafios ativos é de propósito.
+
+## Troféus
+
+As regras ficam na lista `SELOS` em `js/dados.js`. Cada uma é uma função que olha os dados;
+quando passa pela primeira vez, a data é guardada e o selo não sai mais. Não há nada a marcar
+à mão. Para criar um troféu novo, acrescente um item na lista com `regra`, `forma` e `cor`.
 
 ## Como ativar os assessments
 
@@ -80,7 +98,7 @@ Não existe arquivo de áudio no projeto. Os efeitos e a musiquinha são gerados
 pelo próprio navegador com a Web Audio API, em `js/som.js`. Isso mantém o app
 leve, offline e sem nenhuma questão de licença.
 
-Dois botões no topo ligam e desligam cada coisa, e a escolha fica salva.
+Os dois interruptores ficam em Ajustes, na engrenagem do topo, e a escolha fica salva.
 O navegador só libera som depois do primeiro toque na tela, então a musiquinha
 começa quando você interage com o app.
 
@@ -94,6 +112,13 @@ nos dois temas. Trocar um valor muda o app inteiro.
 
 As fontes são Annie Use Your Telescope, Sacramento e Quicksand, todas do Google Fonts
 com licença SIL OFL.
+
+## Atualização
+
+O service worker busca o código na internet primeiro e só usa o cache quando a rede falha,
+então uma versão nova chega sozinha. Fontes e ícones continuam vindo do cache.
+Ao publicar uma versão, troque `VERSAO` em `sw.js` e `VERSAO_APP` em `js/app.js`.
+O número aparece no rodapé do app.
 
 ## O que ficou de fora desta versão
 

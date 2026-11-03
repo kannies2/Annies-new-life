@@ -160,12 +160,16 @@ button { cursor: pointer; }
 
 .desafio { display: flex; gap: var(--space-3); align-items: center; border: 2px solid var(--uva); }
 .desafio .area-icone { flex: none; }
-.desafio.area-espiritual { background: var(--lilas-claro); }
+.desafio.area-espiritualidade { background: var(--lilas-claro); }
 .desafio.area-mental { background: var(--periwinkle-claro); }
 .desafio.area-fisica { background: var(--menta-claro); }
 .desafio.area-beleza { background: var(--rosa-claro); }
 .desafio.area-bemestar { background: var(--manteiga-claro); }
-.desafio.area-carreira { background: var(--pessego-claro); }
+.desafio.area-profissional { background: var(--pessego-claro); }
+.desafio.area-jogos { background: var(--rosa-claro); }
+.desafio.area-autoestima { background: var(--lilas-claro); }
+.desafio.area-financas { background: var(--menta-claro); }
+.desafio.area-viagens { background: var(--periwinkle-claro); }
 
 /* ---------------- metas ---------------- */
 .meta-barra { height: 12px; border-radius: var(--radius-pill); background: var(--borda); overflow: hidden; margin-top: var(--space-2); }
@@ -233,7 +237,7 @@ button { cursor: pointer; }
 .topo-acoes { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
 .marca { display: flex; align-items: center; gap: var(--space-2); }
 .marca .nome { font-family: var(--font-titulo); font-size: 22px; color: var(--uva); white-space: nowrap; }
-@media (max-width: 560px) { .marca .nome { display: none; } }
+@media (max-width: 420px) { .marca .nome { display: none; } }
 
 /* ---------------- busca ---------------- */
 .busca-campo {
@@ -271,11 +275,56 @@ dialog h2 { font-family: var(--font-titulo); font-size: var(--t-titulo-g); margi
 details.mais summary { cursor: pointer; font-weight: 600; color: var(--framboesa); margin-bottom: var(--space-3); }
 
 /* ---------------- comemoração ---------------- */
-.festa { position: fixed; inset: 0; pointer-events: none; z-index: 60; display: grid; place-items: center; }
-.festa .selo { animation: selo-entra 600ms var(--spring); }
+.festa { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: var(--space-4); }
+.festa-fundo {
+  position: absolute; inset: 0; overflow: hidden;
+  background: color-mix(in srgb, var(--creme-100) 55%, transparent);
+  backdrop-filter: blur(10px) saturate(1.1); -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  animation: fundo-entra var(--t-entrada) ease-out;
+}
+.festa-caixa {
+  position: relative; z-index: 1; text-align: center;
+  background: var(--superficie); border: 3px solid var(--uva);
+  border-radius: var(--radius-lg); box-shadow: var(--sombra-flutuante);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  width: min(360px, 100%); max-height: 90dvh; overflow-y: auto;
+  animation: festa-entra 520ms var(--spring);
+}
+.festa-fechar {
+  position: absolute; top: 10px; right: 10px; width: 38px; height: 38px;
+  border: 2px solid var(--borda); background: var(--creme-100); color: var(--tinta-suave);
+  border-radius: var(--radius-pill); display: grid; place-items: center;
+}
+.festa-fechar:hover { background: var(--rosa-claro); color: var(--tinta); }
+.festa-peca { animation: selo-entra 600ms var(--spring) 80ms both; }
+.festa-agnes { margin-top: -14px; animation: agnes-entra 620ms var(--spring) 180ms both; }
+.festa-titulo { font-family: var(--font-titulo); font-size: var(--t-titulo-g); line-height: var(--lh-titulo-g); margin: var(--space-2) 0 0; }
+.festa-texto { color: var(--tinta-suave); font-size: var(--t-apoio); margin: var(--space-1) 0 0; }
+.festa-chip { margin: var(--space-3) 0; transform: rotate(-3deg); }
+.festa-ok { width: 100%; justify-content: center; }
+.festa.saindo { animation: festa-sai 200ms ease-in forwards; }
+body.com-festa { overflow: hidden; }
+
 @keyframes selo-entra { from { transform: scale(.4) rotate(-14deg); opacity: 0; } to { transform: scale(1) rotate(-4deg); opacity: 1; } }
-.confete { position: absolute; top: -20px; border-radius: 2px; animation: cai 1200ms ease-in forwards; }
-@keyframes cai { to { transform: translateY(110vh) rotate(540deg); opacity: 0; } }
+@keyframes agnes-entra { from { transform: translateY(22px) scale(.8); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes festa-entra { from { transform: scale(.86) translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes festa-sai { to { opacity: 0; transform: scale(.96); } }
+
+.confete { position: absolute; top: -24px; border-radius: 2px; animation: cai 2200ms ease-in forwards; }
+@keyframes cai { to { transform: translateY(115vh) rotate(540deg); opacity: 0; } }
+
+/* ---------------- faixa decorada de seção ---------------- */
+.secao {
+  position: relative; display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3);
+  min-height: 46px;
+}
+.tarja-fundo { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.secao > *:not(.tarja-fundo) { position: relative; z-index: 1; }
+.secao-icone { display: grid; place-items: center; flex: none; }
+.secao-icone svg { display: block; width: 26px; height: 26px; }
+.secao-titulo { flex: 1; min-width: 0; }
+.secao-extra { flex: none; display: flex; align-items: center; gap: var(--space-2); }
 
 /* ---------------- aviso ---------------- */
 .aviso-dados { text-align: center; padding: var(--space-5) var(--space-4) 0; }
@@ -519,6 +568,159 @@ dialog.saindo { animation: modal-sai 160ms ease-in forwards; }
   border-radius: var(--radius-pill); border: 1.5px solid var(--uva); display: block;
 }
 
+/* ======================= v1.3: áreas, biblioteca, troféus ======================= */
+
+/* cartão do dia na faixa */
+.dia-cartao { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+.dia-cartao .micro { margin: 0; color: var(--framboesa); }
+
+/* nome mais fácil de achar e trocar */
+.linha-nome { display: flex; align-items: center; gap: var(--space-2); }
+.btn-nome {
+  flex: none; width: 34px; height: 34px; border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--superficie) 70%, transparent);
+  border: 2px solid var(--uva); color: var(--uva);
+  display: grid; place-items: center;
+  transition: transform var(--t-micro-dur) var(--spring), background var(--t-micro-dur) ease-out;
+}
+.btn-nome:hover { transform: rotate(-8deg) scale(1.08); background: var(--superficie); }
+
+/* tira do humor respondido */
+.humor-tira {
+  width: 100%; display: flex; align-items: center; gap: var(--space-3);
+  text-align: left; border-color: var(--manteiga);
+  transition: transform var(--t-micro-dur) var(--spring), border-color var(--t-micro-dur) ease-out;
+}
+.humor-tira:hover { transform: translateY(-2px); border-color: var(--uva); }
+.humor-tira-carinha { flex: none; display: grid; place-items: center; }
+.humor-tira-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.humor-tira-texto b { font-size: var(--t-apoio); }
+.humor-tira-texto .apoio { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.humor-tira-abrir {
+  flex: none; font-size: var(--t-micro); font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--framboesa);
+}
+
+/* chips de área */
+.area-filtros {
+  display: flex; gap: var(--space-2); overflow-x: auto; padding: 2px 2px var(--space-3);
+  scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+}
+.area-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  background: var(--superficie); border: 2px solid var(--borda); border-radius: var(--radius-pill);
+  padding: 6px 14px 6px 8px; font-size: var(--t-apoio); font-weight: 600; color: var(--tinta-suave);
+  min-height: 40px; white-space: nowrap;
+  transition: transform var(--t-micro-dur) var(--spring), background var(--t-micro-dur) ease-out, border-color var(--t-micro-dur) ease-out;
+}
+.area-chip svg { width: 22px; height: 22px; flex: none; }
+.area-chip:hover { transform: translateY(-2px); }
+.area-chip.ativo { background: var(--chip-claro, var(--rosa-claro)); border-color: var(--uva); color: var(--tinta); }
+
+/* cartões da biblioteca */
+.sugestao {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  border-color: var(--sg-claro); background: linear-gradient(170deg, var(--sg-claro) 0%, var(--superficie) 46%);
+}
+.sugestao-topo { display: flex; align-items: center; gap: var(--space-2); justify-content: space-between; }
+.sugestao-icone { display: grid; place-items: center; flex: none; }
+.sugestao-titulo { font-family: var(--font-texto); font-size: var(--t-corpo); font-weight: 700; margin: 0; }
+.sugestao-etapas { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.sugestao-etapas li {
+  font-size: var(--t-apoio); color: var(--tinta-suave);
+  padding-left: 18px; position: relative;
+}
+.sugestao-etapas li::before {
+  content: ""; position: absolute; left: 0; top: 7px; width: 9px; height: 9px;
+  border-radius: var(--radius-pill); border: 2px solid var(--sg);
+}
+.sugestao-etapas .mais-etapas { color: var(--tinta-rotulo); font-style: italic; }
+.sugestao-etapas .mais-etapas::before { border-style: dashed; }
+.sugestao .btn { margin-top: auto; justify-content: center; }
+
+/* troféus */
+.grade-trofeus { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); }
+.trofeu-card {
+  background: var(--superficie); border: 2px solid var(--borda); border-radius: var(--radius-lg);
+  box-shadow: var(--sombra-card); padding: var(--space-4) var(--space-3);
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px;
+}
+.trofeu-card.ganho { border-color: var(--uva); background: linear-gradient(180deg, var(--manteiga-claro), var(--superficie) 60%); }
+.trofeu-card b { font-size: var(--t-apoio); margin-top: var(--space-2); }
+.trofeu-card .apoio { font-size: var(--t-micro); line-height: 1.45; }
+.trofeu-card .micro { color: var(--framboesa); margin-top: 2px; }
+.trofeu { display: block; }
+.trofeu.bloqueado { opacity: .45; filter: grayscale(.4); }
+.trofeu-card.ganho .trofeu { animation: trofeu-brilha 5s ease-in-out infinite; transform-origin: 50% 60%; }
+@keyframes trofeu-brilha {
+  0%, 92%, 100% { transform: none; } 95% { transform: rotate(-7deg) scale(1.05); } 98% { transform: rotate(5deg); }
+}
+
+/* tutorial */
+.tutorial-passos { list-style: none; padding: 0; margin: var(--space-4) 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.tutorial-passo {
+  display: flex; gap: var(--space-3); align-items: flex-start; position: relative;
+  border-left: 6px solid var(--tp);
+}
+.tutorial-n {
+  position: absolute; top: -10px; left: -10px; width: 30px; height: 30px;
+  border-radius: var(--radius-pill); background: var(--tp); border: 2px solid var(--uva);
+  display: grid; place-items: center; font-weight: 700; font-size: var(--t-apoio);
+  color: var(--tinta-sobre-cor);
+}
+.tutorial-icone { flex: none; display: grid; place-items: center; padding-top: 2px; color: var(--uva); }
+.tutorial-icone svg { width: 28px; height: 28px; }
+.tutorial-passo h3 { margin-bottom: 2px; }
+
+/* interruptor */
+.chave {
+  flex: none; width: 54px; height: 32px; border-radius: var(--radius-pill);
+  background: var(--borda); border: 2px solid var(--borda); padding: 0; position: relative;
+  transition: background var(--t-micro-dur) ease-out, border-color var(--t-micro-dur) ease-out;
+}
+.chave i {
+  position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: var(--radius-pill);
+  background: var(--superficie); box-shadow: var(--sombra-card); display: block;
+  transition: transform var(--t-micro-dur) var(--spring);
+}
+.chave[aria-checked="true"] { background: var(--acao); border-color: var(--acao); }
+.chave[aria-checked="true"] i { transform: translateX(22px); }
+
+/* linhas de ajuste */
+.ajuste {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) 0; border-bottom: 2px solid var(--borda);
+}
+.ajuste:last-of-type { border-bottom: none; }
+.ajuste-icone { flex: none; display: grid; place-items: center; width: 38px; height: 38px;
+  border-radius: var(--radius-pill); background: var(--creme-200); color: var(--uva); }
+.ajuste-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ajuste-texto .apoio { font-size: var(--t-micro); }
+
+/* avisinho flutuante */
+.aviso-flutuante {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 55;
+  background: var(--uva); color: var(--creme-100);
+  padding: 12px var(--space-4); border-radius: var(--radius-pill);
+  font-size: var(--t-apoio); font-weight: 600; box-shadow: var(--sombra-flutuante);
+  max-width: calc(100% - var(--space-5)); text-align: center;
+  animation: aviso-sobe 320ms var(--spring);
+}
+.aviso-flutuante.saindo { animation: aviso-sai 240ms ease-in forwards; }
+@keyframes aviso-sobe { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes aviso-sai { to { opacity: 0; transform: translate(-50%, 10px); } }
+@media (min-width: 900px) { .aviso-flutuante { bottom: var(--space-5); left: calc(50% + 108px); } }
+
+/* reflexão */
+#reflexao {
+  width: 100%; margin-top: var(--space-3); padding: 12px;
+  border: 2px solid var(--borda); border-radius: var(--radius-md);
+  background: var(--creme-100); color: var(--tinta); min-height: 120px; resize: vertical;
+}
+#reflexao-salva { color: var(--oliva-escuro); font-weight: 700; opacity: 0; }
+#reflexao-salva.aparece { animation: salvo 2600ms ease-out; }
+
 /* ======================= v1.2: celular ======================= */
 
 /* a Agnes da faixa respira */
@@ -614,9 +816,22 @@ dialog.saindo { animation: modal-sai 160ms ease-in forwards; }
   .modal-acoes .btn { flex: 1; justify-content: center; }
   .linha-campos { gap: var(--space-2); }
 
-  .nav button { font-size: 10px; }
-  .nav button svg { width: 21px; height: 21px; }
+  .nav { padding: 5px; gap: 0; }
+  .nav button { font-size: 9px; padding: 6px 2px; gap: 1px; }
+  .nav button svg { width: 20px; height: 20px; }
   .nav button:active { transform: scale(.94); }
+
+  /* seções e biblioteca */
+  .secao { min-height: 42px; padding: var(--space-2); }
+  .secao-icone svg { width: 22px; height: 22px; }
+  .grade-trofeus { grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .trofeu-card { padding: var(--space-3) var(--space-2); }
+  .trofeu-card .trofeu { width: 62px; height: 62px; }
+  .tutorial-passo { padding-left: var(--space-4); }
+  .tutorial-n { left: -8px; width: 26px; height: 26px; font-size: 13px; }
+  .area-filtros { margin: 0 calc(var(--space-3) * -1); padding-left: var(--space-3); padding-right: var(--space-3); }
+  .dia-cartao { gap: var(--space-2); }
+  .ajuste { padding: var(--space-2) 0; }
 }
 @keyframes folha-sobe { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes folha-desce { to { transform: translateY(100%); } }
