@@ -1302,9 +1302,37 @@ function iniciar() {
   requestAnimationFrame(moverCorredor);
   addEventListener("resize", moverCorredor);
   S.retomarSeLigado();
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-  }
+  cuidarDaVersao();
+}
+
+/* ---------------------------------------- versão e atualização
+   O app fica guardado no aparelho pra funcionar sem internet. Sem isso aqui,
+   uma versão nova no servidor não chegaria até a tela. */
+const VERSAO_APP = "1.2.0";
+
+function cuidarDaVersao() {
+  const marca = $("#versao-app");
+  if (marca) marca.textContent = `versão ${VERSAO_APP}`;
+  if (!("serviceWorker" in navigator)) return;
+
+  let recarregando = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (recarregando) return;
+    recarregando = true;
+    location.reload();
+  });
+
+  const registrar = () => navigator.serviceWorker.register("sw.js").then((reg) => {
+    reg.update().catch(() => {});
+    // ao voltar pro app, confere se saiu versão nova
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) reg.update().catch(() => {});
+    });
+    setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+  }).catch(() => {});
+
+  if (document.readyState === "complete") registrar();
+  else window.addEventListener("load", registrar);
 }
 document.addEventListener("DOMContentLoaded", iniciar);
 })();
