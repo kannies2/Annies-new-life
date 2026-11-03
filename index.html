@@ -26,6 +26,8 @@
   </div>
   <div class="topo-acoes">
     <button class="btn-icone" id="btn-categorias" aria-label="Categorias"></button>
+    <button class="btn-icone" id="btn-som" aria-label="Ligar ou desligar os efeitos sonoros" aria-pressed="true"></button>
+    <button class="btn-icone" id="btn-musica" aria-label="Ligar ou desligar a musiquinha" aria-pressed="false"></button>
     <button class="btn-icone" id="btn-busca" aria-label="Buscar"></button>
     <button class="btn-icone" id="btn-tema" aria-label="Alternar tema claro e escuro"></button>
   </div>
@@ -39,7 +41,7 @@
       <div class="faixa-topo">
         <div>
           <p class="micro" id="hoje-data"></p>
-          <h1 class="destaque saudacao" id="t-hoje">Oi, Annie</h1>
+          <button class="destaque saudacao" id="t-hoje" title="Tocar para trocar o nome"></button>
           <p class="apoio" id="hoje-progresso"></p>
         </div>
         <div class="faixa-deco" id="hoje-deco"></div>
@@ -326,6 +328,19 @@
   </div>
 </dialog>
 
+<dialog id="dlg-nome">
+  <form method="dialog" id="form-nome">
+    <h2>Como quer ser chamada?</h2>
+    <p class="apoio">Esse nome aparece na saudação e nas comemorações.</p>
+    <label class="campo" style="margin-top:var(--space-4)"><span>Nome</span>
+      <input type="text" name="nome" maxlength="40" autocomplete="given-name" required></label>
+    <div class="modal-acoes">
+      <button type="button" class="btn btn-discreto" data-fechar>Cancelar</button>
+      <button type="submit" class="btn btn-principal">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlg-categorias">
   <h2>Categorias</h2>
   <p class="apoio">O app sugere a próxima cor livre. Você troca quando quiser.</p>
@@ -400,6 +415,7 @@
 </dialog>
 
 <script src="js/agnes-arte.js"></script>
+<script src="js/som.js"></script>
 <script src="js/arte.js"></script>
 <script src="js/dados.js"></script>
 <script src="js/assessments.js"></script>

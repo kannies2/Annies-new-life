@@ -16,7 +16,10 @@ const CORES = ["rosa", "lilas", "menta", "manteiga", "pessego", "periwinkle"];
 
 const VAZIO = {
   versao: 1,
+  nome: "Annie",           // quem está usando
   tema: null,              // null = segue o sistema
+  som: true,               // efeitos sonoros
+  musica: false,           // musiquinha de fundo
   tarefas: [],
   habitos: [],
   metas: [],
@@ -327,5 +330,6 @@ window.Dados = {
   novaMeta, progressoMeta,
   novoDesafio, desafiosAtivos, marcarDesafio,
   novaCategoria, corSugerida, excluirCategoria, categoria,
-  anotacao, humor, reflexao, buscar, resumoSemana, id
+  anotacao, humor, reflexao, buscar, resumoSemana, id,
+  nome: (novo) => { if (novo === undefined) return estado.nome || ""; estado.nome = novo.trim().slice(0, 40); salvar(); return estado.nome; }
 };

@@ -3,6 +3,7 @@
 "use strict";
 
 const D = window.Dados, A = window.Arte, AS = window.Assessments;
+const S = window.Som || { tocar(){}, alternar(){}, ligado(){ return false; }, retomarSeLigado(){} };
 const $ = (s, raiz = document) => raiz.querySelector(s);
 const $$ = (s, raiz = document) => [...raiz.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -17,6 +18,7 @@ const ABAS = [
 const MES_CURTO = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
 let aba = "hoje", abaAnterior = "hoje";
+const ORDEM = ["hoje", "semana", "mes", "metas", "revisao"];
 let diaHoje = D.hoje(), diaSemana = D.hoje(), diaMes = D.hoje(), diaMesSel = D.hoje(), diaRevisao = D.hoje();
 let editandoTarefa = null, tarefaDetalhe = null, metaDaEtapa = null, tarefaReagendar = null;
 let filtroBusca = { status: "", categoriaId: "" };
@@ -44,23 +46,53 @@ function montarNav() {
   $$("#nav button").forEach(b => b.onclick = () => irPara(b.dataset.aba));
 }
 function trocarTela(nova) {
+  const de = ORDEM.indexOf(aba), para = ORDEM.indexOf(nova);
   abaAnterior = aba; aba = nova;
   document.documentElement.dataset.aba = ABAS.some(a => a.id === nova) ? nova : "hoje";
+  const ehAba = ABAS.some(a => a.id === nova);
   document.documentElement.style.setProperty("--aba-atual-claro",
-    ABAS.some(a => a.id === nova) ? `var(--aba-${nova}-claro)` : "var(--creme-200)");
+    ehAba ? `var(--aba-${nova}-claro)` : "var(--creme-200)");
+  document.documentElement.style.setProperty("--aba-atual-cor",
+    ehAba ? `var(--aba-${nova})` : "var(--rosa)");
   $$(".tela").forEach(t => t.classList.remove("ativa"));
   const alvo = $("#tela-" + nova);
-  if (alvo) alvo.classList.add("ativa");
+  if (alvo) {
+    alvo.classList.remove("vem-da-direita", "vem-da-esquerda");
+    if (de >= 0 && para >= 0 && de !== para && !semMovimento())
+      alvo.classList.add(para > de ? "vem-da-direita" : "vem-da-esquerda");
+    alvo.classList.add("ativa");
+  }
   $$("#nav button").forEach(b => {
     if (b.dataset.aba === nova) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
-  aplicarTema(); desenhar();
+  aplicarTema(); desenhar(); moverCorredor();
   window.scrollTo({ top: 0, behavior: "instant" });
 }
+
+/** o indicador do menu corre até a aba atual */
+function moverCorredor() {
+  const nav = $("#nav"), botao = $('#nav button[aria-current="page"]');
+  let corredor = $(".corredor", nav);
+  if (!botao) { if (corredor) corredor.style.opacity = "0"; return; }
+  if (!corredor) {
+    corredor = document.createElement("span");
+    corredor.className = "corredor";
+    nav.prepend(corredor);
+  }
+  corredor.style.opacity = "1";
+  const r = botao.getBoundingClientRect(), rn = nav.getBoundingClientRect();
+  corredor.style.width = r.width + "px";
+  corredor.style.height = r.height + "px";
+  corredor.style.transform = `translate(${r.left - rn.left}px, ${r.top - rn.top}px)`;
+}
 function irPara(nova) {
-  if (document.startViewTransition && !semMovimento()) document.startViewTransition(() => trocarTela(nova));
-  else trocarTela(nova);
+  if (nova !== aba) S.tocar("aba");
+  if (document.startViewTransition && !semMovimento()) {
+    const vt = document.startViewTransition(() => trocarTela(nova));
+    // medir o menu durante a transição dá valores errados, então mede depois
+    vt.finished.then(() => requestAnimationFrame(moverCorredor)).catch(() => {});
+  } else trocarTela(nova);
 }
 
 /* ---------------------------------------- animação */
@@ -112,6 +144,11 @@ function animarProgresso(raiz = document) {
     const h = b.style.height; b.style.height = "0%";
     requestAnimationFrame(() => requestAnimationFrame(() => b.style.height = h));
   });
+}
+
+function festejarComSom(comAgnes, texto, sub) {
+  S.tocar("festa");
+  A.festejar(comAgnes, texto, sub);
 }
 
 /* ---------------------------------------- peças */
@@ -171,7 +208,8 @@ function desenharHoje() {
 
   $("#hoje-data").textContent = D.dataLonga(diaHoje);
   const sauda = $("#t-hoje");
-  sauda.textContent = diaHoje === D.hoje() ? "Oi, Annie" : "Esse dia";
+  const nome = D.nome();
+  sauda.textContent = diaHoje === D.hoje() ? (nome ? `Oi, ${nome}` : "Oi") : "Esse dia";
   sauda.classList.remove("anima");
   void sauda.offsetWidth;
   if (!semMovimento()) sauda.classList.add("anima");
@@ -522,8 +560,12 @@ function desenhar() {
 }
 
 /* ---------------------------------------- modais */
-const abrir = (d) => d.showModal();
-const fechar = (d) => d.close();
+const abrir = (d) => { d.showModal(); S.tocar("abrir"); };
+function fechar(d) {
+  if (semMovimento()) { d.close(); return; }
+  d.classList.add("saindo");
+  setTimeout(() => { d.classList.remove("saindo"); d.close(); }, 150);
+}
 function confirmar(titulo, texto, acao) {
   $("#confirma-titulo").textContent = titulo;
   $("#confirma-texto").textContent = texto;
@@ -670,6 +712,32 @@ function ligarEventos() {
   $("#btn-tema").onclick = alternarTema;
   $("#btn-busca").onclick = () => irPara("busca");
   $("#btn-categorias").onclick = () => { desenharCategorias(); abrir($("#dlg-categorias")); };
+
+  function pintarSom() {
+    const bs = $("#btn-som"), bm = $("#btn-musica");
+    bs.innerHTML = A.mini(D.estado.som ? "som" : "somOff", 20);
+    bs.setAttribute("aria-pressed", String(!!D.estado.som));
+    bs.style.color = D.estado.som ? "var(--framboesa)" : "var(--tinta-rotulo)";
+    bm.innerHTML = A.mini(D.estado.musica ? "musica" : "musicaOff", 20);
+    bm.setAttribute("aria-pressed", String(!!D.estado.musica));
+    bm.style.color = D.estado.musica ? "var(--framboesa)" : "var(--tinta-rotulo)";
+  }
+  pintarSom();
+  $("#btn-som").onclick = () => { S.alternar("som"); pintarSom(); };
+  $("#btn-musica").onclick = () => { S.alternar("musica"); pintarSom(); };
+
+  // trocar o nome
+  $("#t-hoje").onclick = () => {
+    const f = $("#form-nome");
+    f.nome.value = D.nome();
+    abrir($("#dlg-nome"));
+    setTimeout(() => f.nome.select(), 60);
+  };
+  $("#form-nome").onsubmit = () => {
+    const v = $("#form-nome").nome.value.trim();
+    if (v) { D.nome(v); S.tocar("marcar"); }
+    desenhar();
+  };
   // renomear categoria direto na lista
   $("#cat-lista").addEventListener("change", (ev) => {
     const campo = ev.target.closest('input[type="text"]');
@@ -733,6 +801,7 @@ function ligarEventos() {
     };
     if (dados.prioridade && (!editandoTarefa || !editandoTarefa.prioridade) && D.prioridadesDoDia(dados.data) >= 3) {
       dados.prioridade = false;
+      S.tocar("limite");
       setTimeout(() => confirmar("Três prioridades já é o limite",
         "Essa tarefa entrou sem prioridade. Tire a prioridade de outra se quiser trocar.", () => {}), 60);
     }
@@ -902,9 +971,10 @@ function aoClicar(ev) {
     }
     if (alvo.closest('[data-acao="marcar-habito"]')) {
       D.marcarHabito(h.id, diaHoje);
+      S.tocar(h.marcas.includes(diaHoje) ? "marcar" : "desmarcar");
       const seq = D.sequencia(h, diaHoje);
       desenharHabitos(); animarProgresso($("#lista-habitos"));
-      if (h.tipo === "diario" && seq > 0 && seq % 7 === 0) A.festejar(true, String(seq), "DIAS");
+      if (h.tipo === "diario" && seq > 0 && seq % 7 === 0) festejarComSom(true, String(seq), "DIAS");
       return;
     }
   }
@@ -922,8 +992,9 @@ function aoClicar(ev) {
     }
     if (alvo.closest('[data-acao="marcar-desafio"]')) {
       const r = D.marcarDesafio(d.id, D.hoje());
+      S.tocar(r && r.marcas.includes(D.hoje()) ? "marcar" : "desmarcar");
       desenhar();
-      if (r && r.concluido) A.festejar(true, String(r.dias), "DIAS");
+      if (r && r.concluido) festejarComSom(true, String(r.dias), "DIAS");
       return;
     }
   }
@@ -938,12 +1009,12 @@ function aoClicar(ev) {
       m.etapas[i].feita = !m.etapas[i].feita;
       if (m.etapas.length && m.etapas.every(e => e.feita)) m.concluida = true;
       D.salvar(); desenharMetas();
-      if (m.concluida) A.festejar(true, "META", "FEITA");
+      if (m.concluida) festejarComSom(true, "META", "FEITA");
       return;
     }
     if (alvo.closest('[data-acao="meta-etapa"]')) { metaDaEtapa = m; $("#form-etapa").reset(); abrir($("#dlg-etapa")); return; }
     if (alvo.closest('[data-acao="meta-concluir"]')) {
-      m.concluida = true; D.salvar(); desenharMetas(); A.festejar(true, "META", "FEITA"); return;
+      m.concluida = true; D.salvar(); desenharMetas(); festejarComSom(true, "META", "FEITA"); return;
     }
     if (alvo.closest('[data-acao="meta-excluir"]')) {
       confirmar("Excluir a meta?", `"${m.titulo}" e suas etapas serão apagadas. As tarefas ligadas continuam.`, () => {
@@ -972,11 +1043,14 @@ function acaoTarefa(tipo, t) {
 
   if (tipo === "alternar") {
     const real = D.materializar(t);
+    const li = $(`.tarefa[data-id="${CSS.escape(t.id)}"]`);
+    if (li && !semMovimento()) li.classList.add("migrando");
     D.alternarFeita(real.id);
+    S.tocar(D.acharTarefa(real.id) && D.acharTarefa(real.id).feita ? "marcar" : "desmarcar");
     if (tarefaDetalhe && (tarefaDetalhe.id === t.id || tarefaDetalhe.id === real.id)) tarefaDetalhe = D.acharTarefa(real.id);
     desenhar();
     const dia = D.tarefasDoDia(real.data);
-    if (dia.length && dia.every(x => x.feita)) A.festejar(true, "DIA", "FEITO");
+    if (dia.length && dia.every(x => x.feita)) festejarComSom(true, "DIA", "FEITO");
     return;
   }
 
@@ -1035,6 +1109,9 @@ function iniciar() {
   $$(".faixa").forEach(f => f.insertAdjacentHTML("beforeend", A.ondinha()));
   ligarEventos();
   trocarTela("hoje");
+  requestAnimationFrame(moverCorredor);
+  addEventListener("resize", moverCorredor);
+  S.retomarSeLigado();
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }

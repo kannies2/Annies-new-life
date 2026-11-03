@@ -45,6 +45,7 @@ Não sai do aparelho e não tem cópia em servidor. Se você limpar os dados do 
 | `js/arte.js` | Peças gráficas da biblioteca, em SVG |
 | `js/agnes-arte.js` | A Agnes em seis expressões. Gerado, não editar à mão |
 | `js/assessments.js` | Estrutura dos testes. É aqui que você preenche as perguntas |
+| `js/som.js` | Efeitos sonoros e musiquinha, sintetizados pelo navegador |
 | `js/app.js` | A interface e o comportamento |
 | `sw.js` | Guarda o app para funcionar sem internet |
 
@@ -72,6 +73,19 @@ Para cada teste, em `js/assessments.js`:
 Nenhuma pontuação é diagnóstico. O app já mostra isso na tela de resultado.
 
 Beleza não tem instrumento validado equivalente, então essa área fica só com desafio e rotina.
+
+## Som
+
+Não existe arquivo de áudio no projeto. Os efeitos e a musiquinha são gerados
+pelo próprio navegador com a Web Audio API, em `js/som.js`. Isso mantém o app
+leve, offline e sem nenhuma questão de licença.
+
+Dois botões no topo ligam e desligam cada coisa, e a escolha fica salva.
+O navegador só libera som depois do primeiro toque na tela, então a musiquinha
+começa quando você interage com o app.
+
+Para trocar a musiquinha por uma música sua, veja `musicaLigar` em `js/som.js`.
+Use só música que você tenha direito de usar.
 
 ## Mudar o visual
 

@@ -71,6 +71,10 @@ const MINI = {
   tema: `<path d="M16 10.5A7 7 0 0 1 7.5 2a7.5 7.5 0 1 0 8.5 8.5Z"/>`,
   mais: `<path d="M10 4v12M4 10h12"/>`,
   volta: `<path d="M12 4 6 10l6 6"/>`,
+  som: `<path d="M4 8h3l4-3v10l-4-3H4Z"/><path d="M13.5 7.5a3.4 3.4 0 0 1 0 5"/><path d="M16 5a7 7 0 0 1 0 10"/>`,
+  somOff: `<path d="M4 8h3l4-3v10l-4-3H4Z"/><path d="M13 8l5 4M18 8l-5 4"/>`,
+  musica: `<path d="M8 15V4l8-1.6V13"/><circle cx="6" cy="15.4" r="2.4"/><circle cx="14" cy="13.4" r="2.4"/>`,
+  musicaOff: `<path d="M8 15V5.6"/><circle cx="6" cy="15.4" r="2.4"/><path d="M3 3l14 14"/>`,
   frente: `<path d="M8 4l6 6-6 6"/>`
 };
 const mini = (k, tam = 18) =>
@@ -124,6 +128,24 @@ function chipPalavra(texto) {
   return `<span class="chip-palavra" style="background:var(--acao);color:#fff">${t}</span>`;
 }
 
+function pontosEstrela(cx, cy, R) {
+  const p = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? R : R * 0.46;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    p.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`);
+  }
+  return p.join(" ");
+}
+function petalas(cx, cy, R, cor) {
+  let s = "";
+  for (let i = 0; i < 6; i++) {
+    const a = (2 * Math.PI * i) / 6 - Math.PI / 2;
+    s += `<circle cx="${(cx + R * 0.56 * Math.cos(a)).toFixed(1)}" cy="${(cy + R * 0.56 * Math.sin(a)).toFixed(1)}" r="${(R * 0.5).toFixed(1)}" fill="${cor}"/>`;
+  }
+  return s + `<circle cx="${cx}" cy="${cy}" r="${(R * 0.62).toFixed(1)}" fill="${cor}"/>`;
+}
+
 /* ---- confete ---- */
 function festejar(comAgnes = true, textoSelo = "7", subSelo = "DIAS") {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) comAgnes = true;
@@ -135,13 +157,21 @@ function festejar(comAgnes = true, textoSelo = "7", subSelo = "DIAS") {
          <div style="margin-top:-12px">${agnes("acolhedora_laco", 110)}</div>
          <div style="margin-top:var(--space-3);transform:rotate(-3deg)">${chipPalavra()}</div>
        </div>` : "";
+  const pecas = [
+    (c) => `<svg viewBox="0 0 24 24"><polygon points="${pontosEstrela(12,12,11)}" fill="${c}"/></svg>`,
+    (c) => `<svg viewBox="0 0 24 24"><path d="M12 21C4 15 2 11 5 7c2.4-3 6-1.6 7 .8C13 5.4 16.6 4 19 7c3 4 1 8-7 14Z" fill="${c}"/></svg>`,
+    (c) => `<svg viewBox="0 0 24 24">${petalas(12,12,9,c)}</svg>`,
+    (c) => `<svg viewBox="0 0 24 24"><path d="M12 1 14 9 22 12 14 15 12 23 10 15 2 12 10 9Z" fill="${c}"/></svg>`,
+    (c) => `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="${c}"/></svg>`
+  ];
   const cores = ["var(--rosa)", "var(--manteiga)", "var(--menta)", "var(--lilas)", "var(--acao)", "var(--pessego)"];
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    for (let i = 0; i < 36; i++) {
+    for (let i = 0; i < 30; i++) {
       const c = document.createElement("i");
       c.className = "confete";
-      c.style.cssText = `left:${Math.random() * 100}%;width:${6 + Math.random() * 8}px;height:${8 + Math.random() * 10}px;
-        background:${cores[i % cores.length]};animation-delay:${Math.random() * 350}ms`;
+      const tam = 12 + Math.random() * 12;
+      c.style.cssText = `left:${Math.random() * 100}%;width:${tam}px;height:${tam}px;animation-delay:${Math.random() * 400}ms`;
+      c.innerHTML = pecas[i % pecas.length](cores[(i * 3) % cores.length]);
       caixa.appendChild(c);
     }
   }
@@ -149,4 +179,4 @@ function festejar(comAgnes = true, textoSelo = "7", subSelo = "DIAS") {
   setTimeout(() => caixa.remove(), 2000);
 }
 
-window.Arte = { agnes, ondinha, selo, caminhoSerrilhado, areaIcone, navIcone, mini, anel, festejar, svg, corrente, estrela, etiquetaDia, chipPalavra };
+window.Arte = { agnes, ondinha, selo, caminhoSerrilhado, areaIcone, navIcone, mini, anel, festejar, svg, corrente, estrela, etiquetaDia, chipPalavra, pontosEstrela };

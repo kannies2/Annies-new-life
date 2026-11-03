@@ -69,7 +69,7 @@ button { cursor: pointer; }
 .btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(0) scale(.98); }
 .btn-principal { background: var(--acao); color: #fff; }
-.btn-secundario { background: var(--rosa-claro); color: var(--tinta); }
+.btn-secundario { background: var(--aba-atual-claro, var(--rosa-claro)); color: var(--tinta); }
 .btn-discreto { background: transparent; color: var(--tinta-suave); box-shadow: inset 0 0 0 2px var(--borda); }
 .btn-icone {
   background: transparent; border-radius: var(--radius-pill);
@@ -224,9 +224,10 @@ button { cursor: pointer; }
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--space-3); padding: var(--space-3) var(--space-4) 0;
 }
-.topo-acoes { display: flex; gap: var(--space-2); }
+.topo-acoes { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
 .marca { display: flex; align-items: center; gap: var(--space-2); }
-.marca .nome { font-family: var(--font-titulo); font-size: 22px; color: var(--uva); }
+.marca .nome { font-family: var(--font-titulo); font-size: 22px; color: var(--uva); white-space: nowrap; }
+@media (max-width: 560px) { .marca .nome { display: none; } }
 
 /* ---------------- busca ---------------- */
 .busca-campo {
@@ -290,7 +291,7 @@ details.mais summary { cursor: pointer; font-weight: 600; color: var(--framboesa
     padding: var(--space-5) var(--space-4) var(--space-3);
   }
   .marca .nome { font-size: 20px; line-height: 1.1; }
-  .nav { padding-top: 150px; }
+  .nav { padding-top: 196px; }
   .tela { padding: var(--space-5) var(--space-6) var(--space-7); }
   .faixa { margin-left: calc(var(--space-6) * -1); margin-right: calc(var(--space-6) * -1); border-radius: var(--radius-lg); }
 }
@@ -378,3 +379,52 @@ html.js .vai-entrar.visivel { opacity: 1; transform: none; transition: opacity v
 .card-acoes button { background: transparent; border: none; color: var(--tinta-rotulo); width: 32px; height: 32px; border-radius: var(--radius-pill); display: grid; place-items: center; }
 .card-acoes button:hover { background: var(--creme-200); color: var(--tinta); }
 .habito.pausado, .desafio.pausado { opacity: .6; }
+
+/* ======================= v1.1: movimento, som e nome ======================= */
+
+/* saudação é botão, mas não parece botão */
+button.saudacao {
+  background: none; border: none; padding: 0; margin: var(--space-1) 0 0;
+  color: var(--tinta); text-align: left; display: block;
+  font-family: var(--font-destaque); font-size: var(--t-destaque-xg); line-height: 1;
+  cursor: pointer; border-radius: var(--radius-md);
+}
+button.saudacao:hover { opacity: .85; }
+
+/* deslize direcional entre abas */
+.tela.ativa.vem-da-direita { animation: desliza-esq var(--t-continua) var(--easing); }
+.tela.ativa.vem-da-esquerda { animation: desliza-dir var(--t-continua) var(--easing); }
+@keyframes desliza-esq { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes desliza-dir { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+
+/* indicador que corre no menu */
+.nav { position: fixed; }
+.nav .corredor {
+  position: absolute; left: 0; top: 0; z-index: 0; border-radius: var(--radius-pill);
+  background: var(--aba-atual-cor, var(--rosa)); opacity: .38;
+  transition: transform var(--t-continua) var(--spring), width var(--t-continua) var(--spring),
+              height var(--t-continua) var(--spring), background var(--t-entrada) ease-out;
+  pointer-events: none;
+}
+.nav button { position: relative; z-index: 1; }
+.nav button[aria-current="page"] { background: transparent; }
+
+/* entrada e saída dos modais */
+dialog[open] { animation: modal-entra var(--t-entrada) var(--spring); }
+dialog[open]::backdrop { animation: fundo-entra var(--t-entrada) ease-out; }
+dialog.saindo { animation: modal-sai 160ms ease-in forwards; }
+@keyframes modal-entra { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes modal-sai { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+@keyframes fundo-entra { from { opacity: 0; } to { opacity: 1; } }
+
+/* tarefa migrando para o grupo de concluídas */
+.tarefa.migrando { animation: migra 320ms var(--easing); }
+@keyframes migra {
+  0% { transform: scale(1); }
+  40% { transform: scale(.96); opacity: .7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* confete com as formas da biblioteca */
+.confete svg { display: block; width: 100%; height: 100%; }
+.confete { background: none !important; }
