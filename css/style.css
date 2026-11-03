@@ -15,9 +15,13 @@ html, body {
   transition: background var(--t-entrada) ease-out;
 }
 
-body { padding-bottom: 92px; }
+body { padding-bottom: calc(104px + env(safe-area-inset-bottom)); overflow-x: hidden; }
 
 h1, h2, h3 { margin: 0; font-weight: 400; }
+/* a margem padrão do parágrafo é proporcional à fonte, então um número grande
+   abria um buraco enorme no card. O espaço aqui é sempre o mesmo. */
+p { margin: 0 0 var(--space-2); }
+p:last-child { margin-bottom: 0; }
 button, input, textarea, select { font-family: inherit; font-size: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; border-radius: var(--radius-sm); }
@@ -50,7 +54,7 @@ button { cursor: pointer; }
   background: var(--faixa-cor, var(--aba-hoje-claro));
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
-.faixa .ondinha { position: absolute; left: 0; right: 0; bottom: -21px; height: 22px; display: block; }
+.faixa .ondinha { position: absolute; left: 0; right: 0; width: 100%; bottom: -21px; height: 22px; display: block; }
 .faixa .ondinha path { fill: var(--faixa-cor, var(--aba-hoje-claro)); }
 .faixa-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .faixa .saudacao { margin: var(--space-1) 0 0; color: var(--tinta); }
@@ -192,7 +196,8 @@ button { cursor: pointer; }
 /* ---------------- revisão ---------------- */
 .bento { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); }
 .bento .card.largo { grid-column: span 2; }
-.numerao { font-family: var(--font-destaque); font-size: 52px; line-height: 1; color: var(--framboesa); }
+/* número grande na fonte de título: o zero da Sacramento vira um círculo vazio */
+.numerao { font-family: var(--font-titulo); font-size: 52px; line-height: 1.05; color: var(--framboesa); }
 .grafico { display: flex; align-items: flex-end; gap: var(--space-2); height: 120px; margin-top: var(--space-3); }
 .grafico .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; height: 100%; }
 .grafico .barra { border-radius: var(--radius-sm) var(--radius-sm) 0 0; transition: height var(--t-progresso) ease-out; }
@@ -202,7 +207,8 @@ button { cursor: pointer; }
 
 /* ---------------- navegação ---------------- */
 .nav {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: var(--space-3);
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
   width: calc(100% - var(--space-5)); max-width: 520px;
   display: flex; justify-content: space-around; gap: 2px;
   background: color-mix(in srgb, var(--superficie) 86%, transparent);
@@ -348,14 +354,15 @@ html.js .vai-entrar.visivel { opacity: 1; transform: none; transition: opacity v
 .dia-topo .dia-nome { flex: 1; }
 
 /* corrente de sequência */
-.corrente { display: flex; align-items: center; gap: 4px; margin-top: var(--space-2); flex-wrap: wrap; }
+.corrente { display: flex; align-items: center; gap: 3px; margin-top: var(--space-2); flex-wrap: wrap; }
 .corrente .elo {
-  width: 22px; height: 22px; border-radius: var(--radius-pill);
+  width: 17px; height: 17px; border-radius: var(--radius-pill);
   border: 3px solid var(--uva); background: var(--creme-100);
   display: grid; place-items: center; flex: none;
 }
 .corrente .elo.ok { background: var(--oliva); }
-.corrente .elo.ok::after { content: ""; width: 8px; height: 5px; border-left: 2.5px solid var(--creme-100); border-bottom: 2.5px solid var(--creme-100); transform: rotate(-45deg); margin-top: -2px; }
+.corrente .elo.ok::after { content: ""; width: 6px; height: 4px; border-left: 2px solid var(--creme-100); border-bottom: 2px solid var(--creme-100); transform: rotate(-45deg); margin-top: -1px; }
+.corrente .estrela svg { width: 20px; height: 20px; display: block; }
 .corrente .elo.futuro { border-style: dashed; border-color: var(--tinta-rotulo); }
 .corrente .estrela { flex: none; }
 
@@ -417,12 +424,208 @@ dialog.saindo { animation: modal-sai 160ms ease-in forwards; }
 @keyframes modal-sai { to { opacity: 0; transform: translateY(8px) scale(.98); } }
 @keyframes fundo-entra { from { opacity: 0; } to { opacity: 1; } }
 
-/* tarefa migrando para o grupo de concluídas */
-.tarefa.migrando { animation: migra 320ms var(--easing); }
-@keyframes migra {
-  0% { transform: scale(1); }
-  40% { transform: scale(.96); opacity: .7; }
-  100% { transform: scale(1); opacity: 1; }
+/* o check desenhando quando a tarefa é concluída */
+.caixa.marcando { animation: caixa-pulo 420ms var(--spring); }
+.caixa.marcando::after { animation: check-nasce 360ms var(--spring) both; }
+@keyframes caixa-pulo {
+  0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); }
+}
+@keyframes check-nasce {
+  0% { transform: rotate(-45deg) scale(0); }
+  60% { transform: rotate(-45deg) scale(1.25); }
+  100% { transform: rotate(-45deg) scale(1); }
+}
+
+/* brilhos saindo da caixinha */
+.brilho { position: fixed; width: 14px; height: 14px; z-index: 70; pointer-events: none; }
+.brilho svg { display: block; }
+
+/* ======================= v1.2: humor ======================= */
+
+.humor-linha { display: flex; gap: var(--space-2); flex-wrap: wrap; margin: var(--space-3) 0 var(--space-3); }
+.humor-chip {
+  background: var(--superficie); border: 2px solid var(--borda); border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  font-weight: 700; font-size: var(--t-apoio); color: var(--tinta-suave); min-height: 52px;
+  transition: transform var(--t-micro-dur) var(--spring), background var(--t-micro-dur) ease-out,
+              border-color var(--t-micro-dur) ease-out, color var(--t-micro-dur) ease-out;
+}
+.humor-chip:hover { transform: translateY(-2px); }
+.humor-chip .carinha { flex: none; transition: transform var(--t-micro-dur) var(--spring); }
+.humor-chip:hover .carinha { transform: rotate(-8deg) scale(1.06); }
+.humor-chip[aria-pressed="true"] {
+  background: var(--chip-claro); border-color: var(--uva); color: var(--tinta);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--chip) 38%, transparent);
+}
+.humor-chip[aria-pressed="false"] .carinha { opacity: .62; }
+
+.humor-status { margin: 0 0 var(--space-3); font-size: var(--t-apoio); color: var(--tinta-rotulo); }
+.humor-status.tem { color: var(--oliva-escuro); font-weight: 600; }
+.elo-texto {
+  background: none; border: none; padding: 0; color: var(--framboesa);
+  font-weight: 700; font-size: inherit; text-decoration: underline;
+}
+.humor-nota { margin-bottom: var(--space-4) !important; }
+.humor-nota input { width: 100%; padding: 10px var(--space-3); min-height: 44px;
+  border: 2px solid var(--borda); border-radius: var(--radius-md);
+  background: var(--creme-100); color: var(--tinta); }
+
+.salvar-dia { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
+#dia-salvo { color: var(--oliva-escuro); font-weight: 700; opacity: 0; transform: translateY(4px); }
+#dia-salvo.aparece { animation: salvo 2600ms ease-out; }
+@keyframes salvo {
+  0% { opacity: 0; transform: translateY(6px); }
+  12% { opacity: 1; transform: none; }
+  82% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+.bloco.destacado .card { box-shadow: 0 0 0 3px var(--acao), var(--sombra-card); transition: box-shadow var(--t-entrada) ease-out; }
+
+/* semana de carinhas */
+.humor-semana { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: var(--space-2); }
+.humor-dia {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: var(--space-2) 0; border-radius: var(--radius-md); border: 2px solid transparent;
+}
+.humor-dia.hoje { border-color: var(--acao); background: var(--creme-200); }
+.humor-dia .rot { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta-rotulo); }
+.humor-dia .num { font-size: 11px; font-weight: 700; color: var(--tinta-suave); }
+.humor-vazio {
+  width: 36px; height: 36px; border-radius: var(--radius-pill);
+  border: 2px dashed var(--tinta-rotulo); opacity: .4; display: block;
+}
+
+/* mapa de cinco semanas */
+.humor-mapa { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: var(--space-2); }
+.humor-mapa .cab { text-align: center; }
+.humor-celula { aspect-ratio: 1; border-radius: var(--radius-sm); border: 2px solid var(--uva); display: block; }
+.humor-celula.sem { border-color: var(--borda); background: var(--creme-200); }
+.humor-celula.futuro { background: transparent; border-style: dashed; opacity: .5; }
+.humor-celula.hoje { outline: 2px solid var(--acao); outline-offset: 1px; }
+.humor-legendas { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+.humor-legenda { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-apoio); color: var(--tinta-suave); }
+.humor-legenda i { width: 13px; height: 13px; border-radius: 4px; border: 2px solid var(--uva); display: block; }
+.humor-legenda b { color: var(--tinta); }
+.humor-notas { list-style: none; padding: 0; margin: var(--space-2) 0 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.humor-notas li { display: flex; gap: var(--space-2); align-items: flex-start; font-size: var(--t-apoio); }
+.humor-notas i { width: 10px; height: 10px; border-radius: var(--radius-pill); border: 2px solid var(--uva); flex: none; margin-top: 6px; }
+
+/* ponto de humor no calendário */
+.cal-dia { position: relative; }
+.cal-humor {
+  position: absolute; top: 5px; right: 5px; width: 8px; height: 8px;
+  border-radius: var(--radius-pill); border: 1.5px solid var(--uva); display: block;
+}
+
+/* ======================= v1.2: celular ======================= */
+
+/* a Agnes da faixa respira */
+.faixa-deco svg { animation: bobinho 4.5s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes bobinho {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  35% { transform: translateY(-5px) rotate(-2.5deg); }
+  70% { transform: translateY(-1px) rotate(1.5deg); }
+}
+
+@media (max-width: 599px) {
+  :root {
+    --t-titulo-xg: 32px;  --lh-titulo-xg: 36px;
+    --t-titulo-g: 26px;   --lh-titulo-g: 31px;
+    --t-titulo-m: 21px;   --lh-titulo-m: 26px;
+    --t-destaque-xg: 44px;
+    --t-corpo: 16px;      --lh-corpo: 24px;
+    --t-apoio: 14px;      --lh-apoio: 21px;
+  }
+
+  .tela { padding: 0 var(--space-3) var(--space-6); }
+  .faixa {
+    margin: 0 calc(var(--space-3) * -1) var(--space-5);
+    padding: var(--space-4) var(--space-4) var(--space-5);
+  }
+  .faixa-topo { gap: var(--space-2); }
+  .faixa-deco svg { width: 56px; height: auto; }
+  .card, .tarefa { padding: var(--space-3); border-radius: var(--radius-md); }
+  .bloco { margin-bottom: var(--space-5); }
+
+  /* a linha da tarefa fica para o texto; as ações moram no detalhe */
+  .tarefa-acoes { display: none; }
+  .tarefa { gap: var(--space-2); align-items: center; }
+  .tarefa-corpo { position: relative; padding-right: 18px; }
+  .tarefa-corpo::after {
+    content: ""; position: absolute; right: 2px; top: 50%; width: 8px; height: 8px;
+    border-right: 2px solid var(--tinta-rotulo); border-top: 2px solid var(--tinta-rotulo);
+    transform: translateY(-50%) rotate(45deg); opacity: .55;
+  }
+  .tarefa.feita .tarefa-corpo::after { opacity: .25; }
+  .tarefa-meta { gap: 6px; }
+  .etq { padding: 2px 9px; }
+
+  /* revisão: duas colunas de verdade */
+  .bento { grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .bento .card { display: flex; flex-direction: column; gap: 2px; }
+  .bento .card.largo { grid-column: 1 / -1; }
+  .numerao { font-size: 40px; }
+  .grafico { height: 96px; }
+
+  /* cabeçalho mais enxuto */
+  .topo { padding: var(--space-2) var(--space-3) 0; }
+  .topo-acoes { gap: 6px; flex-wrap: nowrap; }
+  .btn-icone { width: 40px; height: 40px; }
+  .btn-icone svg { width: 18px; height: 18px; }
+  .marca svg { width: 38px; height: auto; }
+
+  /* hábitos e desafios mais compactos */
+  /* a coluna da direita fica reservada pro lápis, pra não encostar na caixinha */
+  .habito, .desafio { gap: var(--space-2); padding-right: 42px; }
+  .habito .card-acoes, .desafio .card-acoes { top: 6px; right: 6px; }
+  .habito h3, .desafio h3 { font-size: var(--t-apoio); }
+  .anel { width: 54px; height: 54px; }
+  .area-icone { width: 38px; height: 38px; }
+  .corrente .elo { width: 15px; height: 15px; border-width: 2.5px; }
+
+  /* humor */
+  .humor-chip { min-height: 48px; padding: 6px var(--space-2); font-size: 13px; gap: 6px; flex: 1 1 calc(33% - 8px); justify-content: center; }
+  .humor-chip .carinha { width: 28px; height: 28px; }
+  .humor-dia .carinha, .humor-vazio { width: 30px; height: 30px; }
+  .humor-legendas { gap: var(--space-2); }
+
+  /* calendário e etiquetas */
+  .calendario { gap: 4px; }
+  .cal-dia { border-radius: var(--radius-sm); font-size: 15px; }
+  .etiqueta-dia { width: 46px; border-width: 2.5px; }
+  .etiqueta-dia .n { font-size: 19px; }
+
+  /* modais viram folha que sobe de baixo */
+  dialog {
+    width: 100%; max-width: none; margin: 0 auto; left: 0; right: 0;
+    top: auto; bottom: 0; max-height: 88dvh; overflow-y: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: none;
+    padding: var(--space-3) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+  }
+  dialog::before {
+    content: ""; display: block; width: 46px; height: 5px; border-radius: var(--radius-pill);
+    background: var(--borda); margin: 0 auto var(--space-4);
+  }
+  dialog[open] { animation: folha-sobe var(--t-entrada) var(--easing); }
+  dialog.saindo { animation: folha-desce 180ms ease-in forwards; }
+  .modal-acoes { margin-top: var(--space-4); }
+  .modal-acoes .btn { flex: 1; justify-content: center; }
+  .linha-campos { gap: var(--space-2); }
+
+  .nav button { font-size: 10px; }
+  .nav button svg { width: 21px; height: 21px; }
+  .nav button:active { transform: scale(.94); }
+}
+@keyframes folha-sobe { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes folha-desce { to { transform: translateY(100%); } }
+
+/* telas bem estreitas */
+@media (max-width: 374px) {
+  .humor-chip span { display: none; }
+  .humor-chip { flex: 1 1 auto; padding: 6px; }
+  .nav button span { font-size: 9px; }
 }
 
 /* confete com as formas da biblioteca */

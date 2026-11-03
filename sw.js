@@ -1,5 +1,5 @@
 /* Annie's New Life — service worker. Guarda o app para funcionar sem internet. */
-const CACHE = "anl-v3";
+const CACHE = "anl-v4";
 const ARQUIVOS = [
   "./", "./index.html",
   "./css/fontes.css", "./css/tokens.css", "./css/style.css",

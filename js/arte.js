@@ -73,12 +73,28 @@ const MINI = {
   volta: `<path d="M12 4 6 10l6 6"/>`,
   som: `<path d="M4 8h3l4-3v10l-4-3H4Z"/><path d="M13.5 7.5a3.4 3.4 0 0 1 0 5"/><path d="M16 5a7 7 0 0 1 0 10"/>`,
   somOff: `<path d="M4 8h3l4-3v10l-4-3H4Z"/><path d="M13 8l5 4M18 8l-5 4"/>`,
-  musica: `<path d="M8 15V4l8-1.6V13"/><circle cx="6" cy="15.4" r="2.4"/><circle cx="14" cy="13.4" r="2.4"/>`,
-  musicaOff: `<path d="M8 15V5.6"/><circle cx="6" cy="15.4" r="2.4"/><path d="M3 3l14 14"/>`,
+  musica: `<path d="M8 14.5V3.5l8-1.7v11"/><ellipse cx="5.6" cy="14.9" rx="2.5" ry="2.1" fill="currentColor" stroke="none"/><ellipse cx="13.6" cy="13.2" rx="2.5" ry="2.1" fill="currentColor" stroke="none"/>`,
+  musicaOff: `<path d="M8 14.5V4"/><ellipse cx="5.6" cy="14.9" rx="2.5" ry="2.1" fill="currentColor" stroke="none"/><path d="M11 5l6 6M17 5l-6 6"/>`,
   frente: `<path d="M8 4l6 6-6 6"/>`
 };
 const mini = (k, tam = 18) =>
   `<svg viewBox="0 0 20 20" width="${tam}" height="${tam}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MINI[k] || ""}</svg>`;
+
+/* ---- carinhas do humor ---- */
+const ROSTOS = {
+  otimo: `<path d="M10 13q2.4-3 4.8 0" /><path d="M17.2 13q2.4-3 4.8 0" /><path d="M10.5 18.5q5.5 6 11 0" /><path d="M10.5 18.5q5.5 1.6 11 0" fill="var(--uva)" stroke="none" opacity=".18"/>`,
+  bem: `<circle cx="12.4" cy="13.4" r="1.7" fill="var(--uva)" stroke="none"/><circle cx="19.6" cy="13.4" r="1.7" fill="var(--uva)" stroke="none"/><path d="M11.5 19q4.5 4.4 9 0"/>`,
+  ok: `<circle cx="12.4" cy="13.6" r="1.7" fill="var(--uva)" stroke="none"/><circle cx="19.6" cy="13.6" r="1.7" fill="var(--uva)" stroke="none"/><path d="M12 20h8"/>`,
+  cansada: `<path d="M10.4 14.2h4"/><path d="M17.6 14.2h4"/><path d="M11.8 20.4q2-1.8 4 0t4 0"/>`,
+  off: `<path d="M10.4 14.6q2.2 2.4 4.4 0"/><path d="M17.2 14.6q2.2 2.4 4.4 0"/><path d="M13 20.2h6"/>`
+};
+function carinha(humor, tam = 30, cor = "var(--manteiga)") {
+  return `<svg viewBox="0 0 32 32" width="${tam}" height="${tam}" class="carinha" aria-hidden="true">
+    <circle cx="16" cy="16" r="13" fill="${cor}" stroke="var(--uva)" stroke-width="2.2"/>
+    <g fill="none" stroke="var(--uva)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      ${ROSTOS[humor] || ROSTOS.ok}
+    </g></svg>`;
+}
 
 /* ---- anel de progresso ---- */
 function anel(valor, alvo, cor = "var(--oliva)", tam = 64, texto = null) {
@@ -179,4 +195,4 @@ function festejar(comAgnes = true, textoSelo = "7", subSelo = "DIAS") {
   setTimeout(() => caixa.remove(), 2000);
 }
 
-window.Arte = { agnes, ondinha, selo, caminhoSerrilhado, areaIcone, navIcone, mini, anel, festejar, svg, corrente, estrela, etiquetaDia, chipPalavra, pontosEstrela };
+window.Arte = { agnes, ondinha, selo, caminhoSerrilhado, areaIcone, navIcone, mini, anel, festejar, svg, corrente, estrela, etiquetaDia, chipPalavra, pontosEstrela, carinha };

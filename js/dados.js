@@ -264,10 +264,58 @@ function anotacao(data, texto) {
   if (texto.trim()) estado.anotacoes[data] = texto; else delete estado.anotacoes[data];
   salvar();
 }
+/* O humor é guardado como { v, em, nota }. Versões antigas guardavam só o texto,
+   então a leitura aceita os dois formatos. */
+function humorRegistro(data) {
+  const bruto = estado.humores[data];
+  if (!bruto) return null;
+  if (typeof bruto === "string") return { v: bruto, em: "", nota: "" };
+  return { v: bruto.v || "", em: bruto.em || "", nota: bruto.nota || "" };
+}
 function humor(data, valor) {
-  if (valor === undefined) return estado.humores[data] || "";
-  if (valor) estado.humores[data] = valor; else delete estado.humores[data];
+  const atual = humorRegistro(data);
+  if (valor === undefined) return atual ? atual.v : "";
+  if (valor) {
+    const agora = new Date();
+    estado.humores[data] = {
+      v: valor,
+      em: `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`,
+      nota: atual ? atual.nota : ""
+    };
+  } else delete estado.humores[data];
   salvar();
+  return valor;
+}
+function humorNota(data, texto) {
+  const atual = humorRegistro(data);
+  if (texto === undefined) return atual ? atual.nota : "";
+  if (!atual) return "";
+  atual.nota = texto.slice(0, 200);
+  estado.humores[data] = atual;
+  salvar();
+  return atual.nota;
+}
+/** os últimos n dias, do mais antigo ao mais novo */
+function humorSerie(ate = hoje(), n = 30) {
+  const fim = deISO(ate);
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(fim);
+    d.setDate(d.getDate() - (n - 1 - i));
+    const data = iso(d);
+    return { data, ...(humorRegistro(data) || { v: "", em: "", nota: "" }) };
+  });
+}
+/** quantas vezes cada humor apareceu no período */
+function humorContagem(serie) {
+  const c = {};
+  serie.forEach(d => { if (d.v) c[d.v] = (c[d.v] || 0) + 1; });
+  return c;
+}
+/** quantos dias seguidos, até a data, têm humor registrado */
+function humorSequencia(ate = hoje()) {
+  let n = 0, d = ate;
+  while (humorRegistro(d)) { n++; d = somaDias(d, -1); }
+  return n;
 }
 function reflexao(semana, texto) {
   if (texto === undefined) return estado.reflexoes[semana] || "";
@@ -330,6 +378,7 @@ window.Dados = {
   novaMeta, progressoMeta,
   novoDesafio, desafiosAtivos, marcarDesafio,
   novaCategoria, corSugerida, excluirCategoria, categoria,
-  anotacao, humor, reflexao, buscar, resumoSemana, id,
+  anotacao, humor, humorRegistro, humorNota, humorSerie, humorContagem, humorSequencia,
+  reflexao, buscar, resumoSemana, id,
   nome: (novo) => { if (novo === undefined) return estado.nome || ""; estado.nome = novo.trim().slice(0, 40); salvar(); return estado.nome; }
 };

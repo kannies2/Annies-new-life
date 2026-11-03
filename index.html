@@ -91,13 +91,26 @@
     </div>
 
     <div class="bloco">
-      <div class="bloco-topo"><h2 class="titulo-m">Como foi o dia</h2></div>
-      <div class="card">
-        <div id="humor-linha" style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-bottom:var(--space-4)"></div>
+      <div class="bloco-topo">
+        <h2 class="titulo-m">Como foi o dia</h2>
+        <button class="btn btn-discreto" id="btn-ver-humor" style="min-height:36px;padding:6px 14px">Histórico</button>
+      </div>
+      <div class="card" id="card-humor">
+        <p class="micro">Marque como você está</p>
+        <div id="humor-linha" class="humor-linha"></div>
+        <p class="humor-status" id="humor-status"></p>
+        <label class="campo humor-nota oculto" id="humor-nota-campo">
+          <span class="micro">Quer dizer por quê?</span>
+          <input type="text" id="humor-nota" maxlength="200" placeholder="Uma linha basta." autocomplete="off">
+        </label>
         <label class="campo" style="margin:0">
           <span class="micro">Anotações do dia</span>
           <textarea id="anotacao" placeholder="Lembretes, ideias, o que quiser guardar."></textarea>
         </label>
+        <div class="salvar-dia">
+          <span class="apoio" id="dia-salvo"></span>
+          <button class="btn btn-principal" id="btn-salvar-dia">Salvar o dia</button>
+        </div>
       </div>
     </div>
   </section>
@@ -191,6 +204,15 @@
       </div>
     </div>
     <div class="bento" id="revisao-bento"></div>
+
+    <div class="bloco" id="bloco-humor" style="margin-top:var(--space-5)">
+      <div class="bloco-topo">
+        <h2 class="titulo-m">Meu humor</h2>
+        <span class="micro" id="humor-sequencia"></span>
+      </div>
+      <div class="card" id="humor-painel"></div>
+    </div>
+
     <div class="bloco" style="margin-top:var(--space-5)">
       <div class="card">
         <h2 class="titulo-m" style="margin-bottom:var(--space-2)">Reflexão da semana</h2>

@@ -117,6 +117,8 @@ function observarEntradas() {
   const altura = window.innerHeight;
   alvos.forEach(e => {
     e.dataset.entrou = "1";
+    // a tarefa que acabou de ser marcada está viajando, não pode sumir
+    if (semReveal && e.dataset.id === semReveal) return;
     // o que já está na tela não some nunca
     if (e.getBoundingClientRect().top < altura + 80) return;
     e.classList.add("vai-entrar");
@@ -125,6 +127,67 @@ function observarEntradas() {
   // rede de segurança: nada fica invisível por mais de um segundo
   clearTimeout(redeSeguranca);
   redeSeguranca = setTimeout(() => $$(".vai-entrar:not(.visivel)").forEach(e => e.classList.add("visivel")), 1000);
+}
+
+/* ------- concluir tarefa: o card viaja até o lugar novo (FLIP) ------- */
+let semReveal = null;
+
+function medirTarefas() {
+  const mapa = new Map();
+  $$(".tarefa").forEach(li => mapa.set(li.dataset.id, li.getBoundingClientRect()));
+  return mapa;
+}
+
+function animarMigracao(antes, idMarcada, virouFeita) {
+  if (semMovimento() || !antes || typeof Element.prototype.animate !== "function") return;
+  $$(".tarefa").forEach(li => {
+    const de = antes.get(li.dataset.id);
+    if (!de) return;
+    const para = li.getBoundingClientRect();
+    const dx = de.left - para.left, dy = de.top - para.top;
+    const marcada = li.dataset.id === idMarcada;
+    if (!marcada && Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+    if (marcada) {
+      li.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: .9 },
+        { transform: `translate(${dx * .2}px, ${dy * .2}px) scale(1.04)`, opacity: 1, offset: .62 },
+        { transform: "none", opacity: 1 }
+      ], { duration: 460, easing: "cubic-bezier(.34,1.3,.64,1)" });
+      const caixa = $(".caixa", li);
+      if (caixa) {
+        caixa.classList.remove("marcando");
+        void caixa.offsetWidth;
+        caixa.classList.add("marcando");
+        if (virouFeita) brilhar(caixa);
+      }
+    } else {
+      li.animate(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
+        { duration: 320, easing: "cubic-bezier(.2,.8,.2,1)" }
+      );
+    }
+  });
+}
+
+/** três brilhos saindo da caixinha marcada */
+function brilhar(caixa) {
+  const r = caixa.getBoundingClientRect();
+  const cores = ["var(--manteiga)", "var(--rosa)", "var(--menta)"];
+  for (let i = 0; i < 3; i++) {
+    const b = document.createElement("i");
+    b.className = "brilho";
+    b.innerHTML = A.estrela(14, cores[i]);
+    b.style.left = (r.left + r.width / 2 - 7) + "px";
+    b.style.top = (r.top + r.height / 2 - 7) + "px";
+    document.body.appendChild(b);
+    const ang = (-Math.PI / 2) + (i - 1) * 0.8;
+    b.animate([
+      { transform: "translate(0,0) scale(.4)", opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * 34}px, ${Math.sin(ang) * 34}px) scale(1.1) rotate(${i * 90}deg)`, opacity: 0 }
+    ], { duration: 620, easing: "cubic-bezier(.2,.8,.2,1)" }).onfinish = () => b.remove();
+    setTimeout(() => b.remove(), 900);
+  }
 }
 
 /** anéis e barras crescem do zero */
@@ -281,16 +344,56 @@ function desenharDesafiosHoje() {
 }
 
 const HUMORES = [
-  { id: "ok", rotulo: "ok", cor: "menta" }, { id: "bem", rotulo: "bem", cor: "manteiga" },
-  { id: "otimo", rotulo: "ótimo", cor: "rosa" }, { id: "cansada", rotulo: "cansada", cor: "periwinkle" },
+  { id: "otimo", rotulo: "ótimo", cor: "rosa" },
+  { id: "bem", rotulo: "bem", cor: "manteiga" },
+  { id: "ok", rotulo: "ok", cor: "menta" },
+  { id: "cansada", rotulo: "cansada", cor: "periwinkle" },
   { id: "off", rotulo: "off", cor: "lilas" }
 ];
+const humorPor = (id) => HUMORES.find(h => h.id === id);
+
 function desenharHumor() {
-  const atual = D.humor(diaHoje);
+  const reg = D.humorRegistro(diaHoje);
+  const atual = reg ? reg.v : "";
   $("#humor-linha").innerHTML = HUMORES.map(h =>
-    `<button class="btn" data-humor="${h.id}" aria-pressed="${atual === h.id}"
-      style="background:var(--${h.cor}${atual === h.id ? "" : "-claro"});color:var(--tinta);min-height:40px;padding:8px 16px">
-      ${h.rotulo}</button>`).join("");
+    `<button class="humor-chip" data-humor="${h.id}" aria-pressed="${atual === h.id}"
+      style="--chip:var(--${h.cor});--chip-claro:var(--${h.cor}-claro)">
+      ${A.carinha(h.id, 34, `var(--${h.cor})`)}<span>${h.rotulo}</span></button>`).join("");
+
+  const status = $("#humor-status");
+  if (atual) {
+    const h = humorPor(atual);
+    status.innerHTML = `Guardado${reg.em ? ` às ${reg.em}` : ""} · você marcou <b>${h ? h.rotulo : atual}</b>`
+      + ` · <button class="elo-texto" data-humor-limpar>apagar</button>`;
+  } else {
+    status.textContent = diaHoje === D.hoje()
+      ? "Ainda não registrado hoje. É só tocar numa carinha."
+      : "Nada registrado nesse dia.";
+  }
+  status.classList.toggle("tem", !!atual);
+
+  $("#humor-nota-campo").classList.toggle("oculto", !atual);
+  $("#humor-nota").value = D.humorNota(diaHoje);
+}
+
+function rolarAte(seletor) {
+  const el = $(seletor);
+  if (!el) return;
+  el.scrollIntoView({ behavior: semMovimento() ? "instant" : "smooth", block: "start" });
+  el.classList.remove("destacado"); void el.offsetWidth; el.classList.add("destacado");
+  setTimeout(() => el.classList.remove("destacado"), 1600);
+}
+
+/** confirmação visível de que o dia foi guardado */
+function avisarSalvo(texto = "Guardado ✓") {
+  const alvo = $("#dia-salvo");
+  if (!alvo) return;
+  alvo.textContent = texto;
+  alvo.classList.remove("aparece");
+  void alvo.offsetWidth;
+  alvo.classList.add("aparece");
+  clearTimeout(avisarSalvo.t);
+  avisarSalvo.t = setTimeout(() => alvo.classList.remove("aparece"), 2600);
 }
 
 /* ---------------------------------------- SEMANA */
@@ -336,8 +439,10 @@ function desenharMes() {
     const ts = D.tarefasDoDia(d);
     const fora = D.deISO(d).getMonth() !== mes;
     const pts = ts.slice(0, 3).map(t => `<i class="${t.feita ? "feito" : ""}"></i>`).join("");
+    const hm = D.humor(d), hc = humorPor(hm);
     return `<button class="cal-dia ${fora ? "fora" : ""} ${d === D.hoje() ? "hoje" : ""} ${d === diaMesSel ? "sel" : ""}"
-      data-dia="${d}" aria-label="${D.dataLonga(d)}, ${ts.length} tarefas">
+      data-dia="${d}" aria-label="${D.dataLonga(d)}, ${ts.length} tarefas${hc ? ", humor " + hc.rotulo : ""}">
+      ${hm ? `<i class="cal-humor" style="background:var(--${hc ? hc.cor : "menta"})"></i>` : ""}
       <span>${D.deISO(d).getDate()}</span><span class="pts">${pts}</span></button>`;
   }).join("");
 
@@ -470,8 +575,64 @@ function desenharRevisao() {
       <p class="apoio">Você fechou ${r.percentual}% do que planejou.</p>
       <div style="margin-top:var(--space-3)">${A.chipPalavra("uhul")}</div></div>` : ""}`;
 
+  desenharPainelHumor(r);
   $("#reflexao").value = D.reflexao(r.semana);
   observarEntradas(); animarProgresso();
+}
+
+/* ---------------------------------------- HUMOR: acompanhamento */
+function desenharPainelHumor(r) {
+  const semana = r.dias.map(d => ({ data: d, ...(D.humorRegistro(d) || { v: "", em: "", nota: "" }) }));
+  // o mapa termina no fim da semana atual, então cada coluna é sempre o mesmo dia da semana
+  const fimDaSemana = D.somaDias(D.inicioSemana(D.hoje()), 6);
+  const mes = D.humorSerie(fimDaSemana, 35);
+  const contagem = D.humorContagem(mes);
+  const passados = mes.filter(d => d.data <= D.hoje());
+  const registrados = passados.filter(d => d.v).length;
+  const seq = D.humorSequencia(D.hoje()) || D.humorSequencia(D.somaDias(D.hoje(), -1));
+
+  $("#humor-sequencia").textContent = seq > 1 ? `${seq} dias seguidos` : "";
+
+  const linhaSemana = semana.map(d => {
+    const h = humorPor(d.v);
+    const ehHoje = d.data === D.hoje();
+    return `<div class="humor-dia ${ehHoje ? "hoje" : ""}">
+      <span class="rot">${D.DIAS_CURTO[D.deISO(d.data).getDay()]}</span>
+      ${d.v ? A.carinha(d.v, 36, `var(--${h ? h.cor : "menta"})`) : `<span class="humor-vazio"></span>`}
+      <span class="num">${D.deISO(d.data).getDate()}</span>
+    </div>`;
+  }).join("");
+
+  const cabecalho = ["S", "T", "Q", "Q", "S", "S", "D"].map(l => `<span class="micro cab">${l}</span>`).join("");
+  const mapa = cabecalho + mes.map(d => {
+    const h = humorPor(d.v);
+    const futuro = d.data > D.hoje();
+    return `<span class="humor-celula ${d.v ? "" : "sem"} ${futuro ? "futuro" : ""} ${d.data === D.hoje() ? "hoje" : ""}"
+      style="${d.v ? `background:var(--${h ? h.cor : "menta"})` : ""}"
+      title="${D.dataCurta(d.data)}${d.v ? ` · ${h ? h.rotulo : d.v}` : ""}"></span>`;
+  }).join("");
+
+  const legenda = HUMORES.map(h => `<span class="humor-legenda">
+      <i style="background:var(--${h.cor})"></i>${h.rotulo}<b>${contagem[h.id] || 0}</b></span>`).join("");
+
+  const comNota = mes.filter(d => d.v && d.nota).slice(-4).reverse();
+
+  $("#humor-painel").innerHTML = `
+    <p class="micro">Esta semana</p>
+    <div class="humor-semana">${linhaSemana}</div>
+
+    <p class="micro" style="margin-top:var(--space-5)">Últimas cinco semanas</p>
+    <div class="humor-mapa">${mapa}</div>
+    <div class="humor-legendas">${legenda}</div>
+    <p class="apoio" style="margin-top:var(--space-3)">
+      ${registrados ? `${registrados} de ${passados.length} dias registrados.` : "Nenhum dia registrado ainda. Marque uma carinha na aba Hoje."}</p>
+
+    ${comNota.length ? `<p class="micro" style="margin-top:var(--space-5)">O que você escreveu</p>
+      <ul class="humor-notas">${comNota.map(d => {
+        const h = humorPor(d.v);
+        return `<li><i style="background:var(--${h ? h.cor : "menta"})"></i>
+          <span><b>${D.dataCurta(d.data)}</b> ${esc(d.nota)}</span></li>`;
+      }).join("")}</ul>` : ""}`;
 }
 
 /* ---------------------------------------- DETALHE */
@@ -877,6 +1038,14 @@ function ligarEventos() {
   $("#escopo-proximas").onclick = () => { if (escopoAcao) escopoAcao("proximas"); escopoAcao = null; fechar($("#dlg-escopo")); };
 
   $("#anotacao").oninput = (ev) => D.anotacao(diaHoje, ev.target.value);
+  $("#humor-nota").oninput = (ev) => D.humorNota(diaHoje, ev.target.value);
+  $("#btn-salvar-dia").onclick = () => {
+    D.anotacao(diaHoje, $("#anotacao").value);
+    D.humorNota(diaHoje, $("#humor-nota").value);
+    S.tocar("toque");
+    avisarSalvo("Dia guardado ✓");
+  };
+  $("#btn-ver-humor").onclick = () => { irPara("revisao"); setTimeout(() => rolarAte("#bloco-humor"), 360); };
   $("#reflexao").oninput = (ev) => D.reflexao(D.resumoSemana(diaRevisao).semana, ev.target.value);
   $("#busca-campo").oninput = desenharBusca;
 
@@ -934,11 +1103,29 @@ function aoClicar(ev) {
   const novaEm = alvo.closest("[data-nova-em]");
   if (novaEm) { abrirTarefa(null, novaEm.dataset.novaEm); return; }
 
+  if (alvo.closest("[data-humor-limpar]")) {
+    D.humor(diaHoje, "");
+    S.tocar("desmarcar");
+    desenharHumor(); avisarSalvo("Humor apagado");
+    return;
+  }
   const humorBtn = alvo.closest("[data-humor]");
   if (humorBtn) {
     const v = humorBtn.dataset.humor;
-    D.humor(diaHoje, D.humor(diaHoje) === v ? "" : v);
-    desenharHumor(); return;
+    const tirando = D.humor(diaHoje) === v;
+    D.humor(diaHoje, tirando ? "" : v);
+    S.tocar(tirando ? "desmarcar" : "marcar");
+    desenharHumor();
+    if (!tirando) {
+      const novo = $(`[data-humor="${v}"]`);
+      if (novo && !semMovimento()) {
+        novo.animate([{ transform: "scale(.9)" }, { transform: "scale(1.08)", offset: .55 }, { transform: "none" }],
+          { duration: 420, easing: "cubic-bezier(.34,1.3,.64,1)" });
+        brilhar(novo);
+      }
+      avisarSalvo("Humor guardado ✓");
+    } else avisarSalvo("Humor apagado");
+    return;
   }
   const calDia = alvo.closest("[data-dia]");
   if (calDia) { diaMesSel = calDia.dataset.dia; desenharMes(); return; }
@@ -1043,12 +1230,15 @@ function acaoTarefa(tipo, t) {
 
   if (tipo === "alternar") {
     const real = D.materializar(t);
-    const li = $(`.tarefa[data-id="${CSS.escape(t.id)}"]`);
-    if (li && !semMovimento()) li.classList.add("migrando");
+    const antes = medirTarefas();
     D.alternarFeita(real.id);
-    S.tocar(D.acharTarefa(real.id) && D.acharTarefa(real.id).feita ? "marcar" : "desmarcar");
+    const agoraFeita = !!(D.acharTarefa(real.id) || {}).feita;
+    S.tocar(agoraFeita ? "marcar" : "desmarcar");
     if (tarefaDetalhe && (tarefaDetalhe.id === t.id || tarefaDetalhe.id === real.id)) tarefaDetalhe = D.acharTarefa(real.id);
+    semReveal = real.id;
     desenhar();
+    semReveal = null;
+    animarMigracao(antes, real.id, agoraFeita);
     const dia = D.tarefasDoDia(real.data);
     if (dia.length && dia.every(x => x.feita)) festejarComSom(true, "DIA", "FEITO");
     return;
